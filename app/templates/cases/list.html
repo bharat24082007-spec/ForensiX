@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Cases | ForensiX Platform{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Forensic Investigations", "Active incident cases, evidentiary records, and assigned investigator teams") %}
+    {% if current_user.role == 'Lead' %}
+      <a href="/cases/new" class="btn btn-primary">
+        <span>+ New Case</span>
+      </a>
+    {% endif %}
+  {% endcall %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {# Filter Toolbar #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body" style="padding: var(--space-4);">
+      <form method="GET" action="/cases" style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: var(--space-3); align-items: center; flex: 1; min-width: 280px;">
+          <input type="text" name="q" value="{{ search_query }}" placeholder="Search by case number or title..."
+            style="flex: 1; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+
+          <select name="status" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="All" {{ 'selected' if status_filter == 'All' else '' }}>All Statuses</option>
+            <option value="Open" {{ 'selected' if status_filter == 'Open' else '' }}>Open</option>
+            <option value="In Progress" {{ 'selected' if status_filter == 'In Progress' else '' }}>In Progress</option>
+            <option value="Under Review" {{ 'selected' if status_filter == 'Under Review' else '' }}>Under Review</option>
+            <option value="Closed" {{ 'selected' if status_filter == 'Closed' else '' }}>Closed</option>
+          </select>
+
+          <select name="priority" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="All" {{ 'selected' if priority_filter == 'All' else '' }}>All Priorities</option>
+            <option value="Low" {{ 'selected' if priority_filter == 'Low' else '' }}>Low</option>
+            <option value="Medium" {{ 'selected' if priority_filter == 'Medium' else '' }}>Medium</option>
+            <option value="High" {{ 'selected' if priority_filter == 'High' else '' }}>High</option>
+            <option value="Critical" {{ 'selected' if priority_filter == 'Critical' else '' }}>Critical</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: var(--space-3); align-items: center;">
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer;">
+            <input type="checkbox" name="my_cases" value="1" {{ 'checked' if my_cases else '' }}>
+            <span>Lead by Me</span>
+          </label>
+          <button type="submit" class="btn btn-secondary" style="font-size: 12px; padding: var(--space-2) var(--space-3);">Filter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# Cases Table #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Investigation Roster</span>
+      <span class="stat-meta">{{ cases|length }} case(s) found</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if cases %}
+        <div class="table-container" style="border: none; border-radius: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Case No</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Lead Investigator</th>
+                <th>Evidence Items</th>
+                <th>Legal Hold</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in cases %}
+                <tr>
+                  <td><a href="/cases/{{ c.id }}" class="case-no-link">{{ c.case_no }}</a></td>
+                  <td>{{ c.title }}</td>
+                  <td>{{ ui.status_chip(c.status) }}</td>
+                  <td>{{ ui.status_chip(c.priority) }}</td>
+                  <td class="text-muted">{{ c.lead_name }}</td>
+                  <td>{{ c.evidence_count }}</td>
+                  <td>
+                    {% if c.legal_hold %}
+                      <span class="chip chip-compromised" style="font-size: 11px;">ACTIVE</span>
+                    {% else %}
+                      <span class="chip chip-unknown" style="font-size: 11px;">None</span>
+                    {% endif %}
+                  </td>
+                  <td style="font-size: 12px; color: var(--text-subtle);">{{ c.created_at[:10] }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        {% call ui.empty_state("No Cases Found", "No forensic cases match the selected filter criteria or are assigned to your account.", "icon-cases") %}
+          {% if current_user.role == 'Lead' %}
+            <a href="/cases/new" class="btn btn-primary" style="font-size: 12px;">Create New Case</a>
+          {% endif %}
+        {% endcall %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

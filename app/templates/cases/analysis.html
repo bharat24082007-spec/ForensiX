@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Evidence Analysis | {{ case.case_no }} | ForensiX Platform{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Analysis", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {# Reusable Case Header & Stepper & Tabs #}
+  {% include "cases/case_header.html" %}
+
+  {# Tab Page Header: Title + One-line description #}
+  <div class="page-header" style="margin-bottom: var(--space-5);">
+    <div class="page-header-info">
+      <h1>Evidence Analysis Hub</h1>
+      <p>Automated forensic dissection across EXIF image metadata, PCAP network traffic, and authentication server logs</p>
+    </div>
+  </div>
+
+  {# 3 Analysis Module Cards #}
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: var(--space-6); margin-bottom: var(--space-6);">
+    {# Card 1: Metadata & EXIF Analysis #}
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+      <div class="card-header">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <div class="stat-icon" style="color: var(--primary-600); width: 28px; height: 28px;">
+            <svg width="16" height="16" class="icon"><use href="#icon-dashboard"></use></svg>
+          </div>
+          <span class="card-title">Image &amp; File Metadata</span>
+        </div>
+        <span class="chip chip-verified" style="font-size: 11px;">Section 63 Compliant</span>
+      </div>
+      <div class="card-body" style="flex: 1;">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: var(--space-4);">
+          Parse EXIF tags, camera make/model, timestamps, GPS geolocation, and identify anomalies or hidden forensic tags.
+        </p>
+        {% if metadata_items %}
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            {% for item in metadata_items %}
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">
+                  <strong style="font-size: 12px; color: var(--text-main);">{{ item.display_name }}</strong>
+                  <div style="font-size: 11px; color: var(--text-subtle);">{{ (item.size / 1024)|round(1) }} KB</div>
+                </div>
+                <a href="/cases/{{ case.id }}/evidence/{{ item.id }}/metadata" class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                  <span>Inspect Metadata &rarr;</span>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="font-size: 12px; color: var(--text-subtle); font-style: italic;">No image or document evidence files detected in this case.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Card 2: Network Packet & PCAP Analysis #}
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+      <div class="card-header">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <div class="stat-icon" style="color: #0284c7; width: 28px; height: 28px;">
+            <svg width="16" height="16" class="icon"><use href="#icon-refresh"></use></svg>
+          </div>
+          <span class="card-title">Network Packet Dissection</span>
+        </div>
+        <span class="chip chip-verified" style="font-size: 11px;">PCAP / Wireshark</span>
+      </div>
+      <div class="card-body" style="flex: 1;">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: var(--space-4);">
+          Analyze TCP/UDP conversations, reconstruct HTTP GET/POST queries, extract DNS host lookups, and isolate malicious beaconing.
+        </p>
+        {% if network_items %}
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            {% for item in network_items %}
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">
+                  <strong style="font-size: 12px; color: var(--text-main);">{{ item.display_name }}</strong>
+                  <div style="font-size: 11px; color: var(--text-subtle);">{{ (item.size / 1024)|round(1) }} KB</div>
+                </div>
+                <a href="/cases/{{ case.id }}/evidence/{{ item.id }}/network" class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                  <span>Dissect Packets &rarr;</span>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="font-size: 12px; color: var(--text-subtle); font-style: italic;">No .pcap or network capture evidence files detected in this case.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Card 3: Authentication & System Logs #}
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+      <div class="card-header">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <div class="stat-icon" style="color: #0d9488; width: 28px; height: 28px;">
+            <svg width="16" height="16" class="icon"><use href="#icon-system"></use></svg>
+          </div>
+          <span class="card-title">Authentication &amp; System Logs</span>
+        </div>
+        <span class="chip chip-verified" style="font-size: 11px;">Brute-Force Rules</span>
+      </div>
+      <div class="card-body" style="flex: 1;">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: var(--space-4);">
+          Parse syslog, SSH auth logs, identify repeated failed authentication bursts, and detect SUCCESS_AFTER_FAILURES anomalies.
+        </p>
+        {% if log_items %}
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            {% for item in log_items %}
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">
+                  <strong style="font-size: 12px; color: var(--text-main);">{{ item.display_name }}</strong>
+                  <div style="font-size: 11px; color: var(--text-subtle);">{{ (item.size / 1024)|round(1) }} KB</div>
+                </div>
+                <a href="/cases/{{ case.id }}/evidence/{{ item.id }}/logs" class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                  <span>Parse Log Lines &rarr;</span>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="font-size: 12px; color: var(--text-subtle); font-style: italic;">No server or authentication log evidence files detected in this case.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Bottom Navigation / Next Step Button #}
+  <div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+    <span style="font-size: 13px; color: var(--text-muted);">Step 3 of 5 in forensic workflow: Cross-correlate parsed events on the interactive timeline.</span>
+    <a href="/cases/{{ case.id }}/timeline" class="btn btn-primary" style="font-size: 13px;">
+      <svg width="14" height="14" class="icon"><use href="#icon-refresh"></use></svg>
+      <span>Next: Build Timeline &rarr;</span>
+    </a>
+  </div>
+{% endblock %}

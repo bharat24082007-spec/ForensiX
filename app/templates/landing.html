@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ForensiX Platform</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+</head>
+<body class="landing-body">
+  <div class="landing-container">
+    <div class="landing-card">
+      <div class="landing-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <h1 class="landing-title">ForensiX Platform</h1>
+      <p class="landing-subtitle">ForensiX Platform running &bull; Digital Forensic Investigation &amp; Evidence Management</p>
+      <div class="landing-status">
+        <span class="chip chip-verified"><span class="chip-dot"></span>Operational</span>
+        <span class="landing-mode">Single-Host Loopback Mode</span>
+      </div>
+      <a href="/login" class="btn btn-primary landing-cta">
+        Proceed to Secure Sign In &rarr;
+      </a>
+      <p class="landing-footer-text">
+        AES-256-GCM Encrypted Vault &bull; SHA-256 Integrity Chains &bull; Argon2id Authentication
+      </p>
+    </div>
+  </div>
+</body>
+</html>

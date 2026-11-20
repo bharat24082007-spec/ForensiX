@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}System Health &amp; Diagnostics - ForensiX{% endblock %}
+
+{% block breadcrumb %}
+{{ ui.breadcrumb([("Dashboard", "/dashboard"), ("System", "/system/tools"), ("Health Monitor", None)]) }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: var(--space-5);">
+  <div>
+    <h1 style="font-size: 22px; font-weight: 700; color: var(--text-main); margin-bottom: var(--space-1);">
+      System Health &amp; Storage Diagnostics
+    </h1>
+    <p style="color: var(--text-muted); font-size: 13px;">
+      Live operational monitoring: database integrity, vault synchronicity, disk space quotas, and tool health.
+    </p>
+  </div>
+</div>
+
+{# System Sub-Navigation Tabs #}
+<div class="tabs-container" style="margin-bottom: var(--space-6);">
+  <a href="/system/health" class="tab-item active">Health Monitor &amp; Chain</a>
+  <a href="/system/backup" class="tab-item">Backups &amp; Key Recovery</a>
+  <a href="/system/tools" class="tab-item">Tool Adapters</a>
+  {% if current_user.role == 'Admin' %}
+  <a href="/admin/users" class="tab-item">User Accounts</a>
+  {% endif %}
+</div>
+
+{# Alert if disk is low #}
+{% if health.disk_warn %}
+<div
+  style="background-color: var(--status-compromised-bg); border: 1px solid var(--status-compromised-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-5); color: var(--status-compromised-text); display: flex; align-items: center; gap: var(--space-3);">
+  <svg width="20" height="20" style="color: #dc2626; flex-shrink: 0;">
+    <use href="#icon-alert-triangle"></use>
+  </svg>
+  <div>
+    <strong>Critical Storage Alert:</strong> Free disk space is below 1.0 GB ({{ health.disk_free_gb }} GB remaining).
+    Backup and purge working files immediately to avoid database corruption.
+  </div>
+</div>
+{% endif %}
+
+{# Health Stat Tiles #}
+<div
+  style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6);">
+  {# Tile 1: DB Integrity #}
+  <div class="card" style="padding: var(--space-4);">
+    <div
+      style="font-size: 12px; color: var(--text-muted); margin-bottom: var(--space-1); text-transform: uppercase; font-weight: 600;">
+      Database Integrity</div>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span
+        style="font-size: 20px; font-weight: 700; color: {% if health.db_ok %}var(--text-main){% else %}#dc2626{% endif %};">
+        {{ health.db_integrity | upper }}
+      </span>
+      {% if health.db_ok %}
+      {{ ui.status_chip("VERIFIED") }}
+      {% else %}
+      {{ ui.status_chip("COMPROMISED") }}
+      {% endif %}
+    </div>
+    <div style="font-size: 11px; color: var(--text-muted); margin-top: var(--space-2);">PRAGMA integrity_check</div>
+  </div>
+
+  {# Tile 2: Disk Free #}
+  <div class="card" style="padding: var(--space-4);">
+    <div
+      style="font-size: 12px; color: var(--text-muted); margin-bottom: var(--space-1); text-transform: uppercase; font-weight: 600;">
+      Storage Free</div>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span
+        style="font-size: 20px; font-weight: 700; color: {% if health.disk_warn %}#dc2626{% else %}var(--text-main){% endif %};">
+        {{ health.disk_free_gb }} GB
+      </span>
+      <span style="font-size: 12px; color: var(--text-muted);">of {{ health.disk_total_gb }} GB</span>
+    </div>
+    <div style="font-size: 11px; color: var(--text-muted); margin-top: var(--space-2);">Used: {{ health.disk_used_gb }}
+      GB</div>
+  </div>
+
+  {# Tile 3: Vault Synchronicity #}
+  <div class="card" style="padding: var(--space-4);">
+    <div
+      style="font-size: 12px; color: var(--text-muted); margin-bottom: var(--space-1); text-transform: uppercase; font-weight: 600;">
+      Vault Files vs DB</div>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span style="font-size: 20px; font-weight: 700; color: var(--text-main);">
+        {{ health.vault_file_count }} / {{ health.evidence_row_count }}
+      </span>
+      {% if not health.vault_mismatch %}
+      {{ ui.status_chip("VERIFIED") }}
+      {% else %}
+      {{ ui.status_chip("SUSPICIOUS") }}
+      {% endif %}
+    </div>
+    <div style="font-size: 11px; color: var(--text-muted); margin-top: var(--space-2);">
+      {% if health.vault_mismatch %}<span style="color:#b45309;">Mismatch detected (missing files)</span>{% else
+      %}Synchronized{% endif %}
+    </div>
+  </div>
+
+  {# Tile 4: Last Watchdog #}
+  <div class="card" style="padding: var(--space-4);">
+    <div
+      style="font-size: 12px; color: var(--text-muted); margin-bottom: var(--space-1); text-transform: uppercase; font-weight: 600;">
+      Last Watchdog Run</div>
+    <div style="font-size: 14px; font-weight: 600; color: var(--text-main); font-family: monospace;">
+      {{ health.last_watchdog_time[:19] }}
+    </div>
+    <div style="font-size: 11px; color: var(--text-muted); margin-top: var(--space-2);">Automatic integrity scan</div>
+  </div>
+</div>
+
+{# Forensic Tools Availability Section #}
+<div class="card">
+  <div class="card-header"
+    style="padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+    <h3 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0;">Forensic Adapters Health</h3>
+    <a href="/system/tools" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;">View Full
+      Diagnostics</a>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div style="overflow-x: auto;">
+      <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <thead>
+          <tr
+            style="border-bottom: 1px solid var(--border-subtle); background-color: var(--bg-surface-subtle); color: var(--text-muted);">
+            <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Tool Name</th>
+            <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Status</th>
+            <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Detected Version</th>
+            <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Executable Location</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in health.tools %}
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="padding: var(--space-3) var(--space-4); font-weight: 600;">{{ t.name }}</td>
+            <td style="padding: var(--space-3) var(--space-4);">
+              {% if t.available %}
+              <span class="chip chip-verified">Operational</span>
+              {% else %}
+              <span class="chip chip-unknown">Unavailable</span>
+              {% endif %}
+            </td>
+            <td style="padding: var(--space-3) var(--space-4); font-family: monospace; font-size: 12px;">{{ t.version or
+              '—' }}</td>
+            <td
+              style="padding: var(--space-3) var(--space-4); font-family: monospace; font-size: 11px; color: var(--text-muted);">
+              {{ t.configured_path }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

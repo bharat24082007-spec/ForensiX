@@ -1,0 +1,129 @@
+{# ==============================================================================
+   ForensiX UI Macro Components
+   Standardized forensic design elements built for integrity & accessibility
+   ============================================================================== #}
+
+{% macro page_header(title, description, actions=None) %}
+<div class="page-header">
+  <div class="page-header-info">
+    <h1>{{ title }}</h1>
+    {% if description %}<p>{{ description }}</p>{% endif %}
+  </div>
+  {% if caller %}
+    <div class="page-header-actions">
+      {{ caller() }}
+    </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro stat_tile(label, value, icon_id="icon-dashboard", meta=None) %}
+<div class="stat-tile">
+  <div class="stat-tile-top">
+    <span class="stat-label">{{ label }}</span>
+    <div class="stat-icon">
+      <svg width="18" height="18"><use href="#{{ icon_id }}"></use></svg>
+    </div>
+  </div>
+  <div class="stat-value">{{ value }}</div>
+  {% if meta %}
+    <div class="stat-meta">{{ meta }}</div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro status_chip(status) %}
+{% set s = (status or 'Unknown')|upper %}
+{% if s in ['VERIFIED', 'INTACT', 'CLOSED', 'DONE', 'KNOWN GOOD'] %}
+  <span class="chip chip-verified"><span class="chip-dot"></span>{{ status }}</span>
+{% elif s in ['SUSPICIOUS', 'NEEDS REVIEW', 'UNDER REVIEW', 'HIGH'] %}
+  <span class="chip chip-suspicious"><span class="chip-dot"></span>{{ status }}</span>
+{% elif s in ['COMPROMISED', 'BROKEN', 'CRITICAL', 'FAILED', 'KNOWN MALICIOUS'] %}
+  <span class="chip chip-compromised"><span class="chip-dot"></span>{{ status }}</span>
+{% elif s in ['IN PROGRESS', 'OPEN', 'RUNNING', 'MEDIUM'] %}
+  <span class="chip chip-progress"><span class="chip-dot"></span>{{ status }}</span>
+{% else %}
+  <span class="chip chip-unknown"><span class="chip-dot"></span>{{ status }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro hash_display(hash_val, truncate=True) %}
+{% if not hash_val %}
+  <span class="text-subtle font-mono">-</span>
+{% else %}
+  {% set short_hash = (hash_val[:8] + '...' + hash_val[-8:]) if (truncate and hash_val|length > 16) else hash_val %}
+  <span class="hash-badge" title="Full SHA-256: {{ hash_val }}">
+    <svg width="12" height="12" style="color: var(--primary-600); margin-right: 4px; flex-shrink: 0;"><use href="#icon-shield-check"></use></svg>
+    {{ short_hash }}
+    <button type="button" class="copy-btn copy-hash-btn" data-hash="{{ hash_val }}" title="Copy full hash" aria-label="Copy full hash">
+      <svg width="12" height="12"><use href="#icon-copy"></use></svg>
+    </button>
+  </span>
+{% endif %}
+{% endmacro %}
+
+{% macro empty_state(title, description, icon_id="icon-shield") %}
+<div class="empty-state">
+  <svg><use href="#{{ icon_id }}"></use></svg>
+  <h3>{{ title }}</h3>
+  <p>{{ description }}</p>
+  {% if caller %}
+    <div style="margin-top: var(--space-3);">
+      {{ caller() }}
+    </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro breadcrumb(items) %}
+<nav class="breadcrumb-trail" aria-label="Breadcrumb">
+  {% for label, url in items %}
+    {% if not loop.last and url %}
+      <a href="{{ url }}">{{ label }}</a>
+      <span class="breadcrumb-separator" style="margin: 0 4px; color: var(--text-subtle);">&rsaquo;</span>
+    {% else %}
+      <span style="font-weight: 600; color: var(--text-main);">{{ label }}</span>
+    {% endif %}
+  {% endfor %}
+</nav>
+{% endmacro %}
+
+{% macro key_value_list(items) %}
+<div class="detail-grid">
+  {% for label, value in items %}
+    <div class="detail-item">
+      <span class="detail-label">{{ label }}</span>
+      <span class="detail-value">{{ value }}</span>
+    </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro confirm_modal(modal_id, title, message, form_action, confirm_text="Confirm", is_danger=False) %}
+<div id="{{ modal_id }}" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 style="font-size: 16px; font-weight: 600;">{{ title }}</h3>
+      <button type="button" class="theme-toggle-btn" data-modal-close aria-label="Close modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color: var(--text-muted); font-size: 14px;">{{ message }}</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+      <form action="{{ form_action }}" method="POST" style="display:inline;">
+        <button type="submit" class="btn {{ 'btn-danger' if is_danger else 'btn-primary' }}">{{ confirm_text }}</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro job_status_badge(status, job_id=None) %}
+{% set s = (status or 'queued')|lower %}
+<span class="chip {% if s == 'done' %}chip-verified{% elif s == 'running' %}chip-progress{% elif s == 'failed' %}chip-compromised{% else %}chip-unknown{% endif %}"
+      {% if job_id %}id="job-badge-{{ job_id }}" data-job-id="{{ job_id }}" data-job-status="{{ s }}"{% endif %}>
+  <span class="chip-dot"></span>
+  <span class="job-status-text">{{ s|upper }}</span>
+</span>
+{% endmacro %}

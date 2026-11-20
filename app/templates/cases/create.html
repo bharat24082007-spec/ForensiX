@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Create Case | ForensiX Platform{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), ("Create Case", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Open New Investigation", "Provision a formal case record. Case identifiers are strictly sequenced (CASE-YYYY-XXXX)") %}
+  {% endcall %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card" style="max-width: 650px; margin: 0 auto;">
+    <div class="card-header">
+      <span class="card-title">Investigation Details</span>
+      <span class="chip chip-progress">Role: Lead</span>
+    </div>
+    <div class="card-body">
+      <form action="/cases/new" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div style="margin-bottom: var(--space-4);">
+          <label for="title" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Case Title</label>
+          <input type="text" id="title" name="title" required placeholder="e.g. Server Compromise &amp; Data Exfiltration"
+            style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 14px;">
+        </div>
+
+        <div style="margin-bottom: var(--space-4);">
+          <label for="priority" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Priority Level</label>
+          <select id="priority" name="priority" style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 14px;">
+            <option value="Low">Low - Informational / Archival</option>
+            <option value="Medium" selected>Medium - Standard Incident</option>
+            <option value="High">High - Confirmed Breach / Data Loss</option>
+            <option value="Critical">Critical - Active APT / Ransomware</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: var(--space-5);">
+          <label for="description" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Initial Incident Summary</label>
+          <textarea id="description" name="description" rows="4" placeholder="Briefly document the initial trigger, impacted hosts, or reporting authority..."
+            style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px; font-family: var(--font-sans);"></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: var(--space-3);">
+          <a href="/cases" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary">Create Case &rarr;</button>
+        </div>
+      </form>
+    </div>
+    <div class="card-footer" style="font-size: 12px; color: var(--text-subtle);">
+      Case creation registers an entry into the immutable custody chain.
+    </div>
+  </div>
+{% endblock %}

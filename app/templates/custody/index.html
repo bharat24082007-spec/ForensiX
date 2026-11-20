@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Chain of Custody - {{ case.case_no }} - ForensiX{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Custody Trail", None)]) }}
+{% endblock %}
+
+{% block content %}
+{% include "cases/case_header.html" %}
+
+{# Chain Integrity Status Banner #}
+{% if chain_result.status == 'OK' %}
+  <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-4);">
+      <div style="width: 40px; height: 40px; border-radius: var(--radius-full); background-color: #dcfce7; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="22" height="22" style="color: #16a34a;"><use href="#icon-shield-check"></use></svg>
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <h3 style="font-size: 16px; font-weight: 700; color: #166534; margin: 0;">Custody Chain Cryptographically Intact</h3>
+          {{ ui.status_chip("INTACT") }}
+        </div>
+        <p style="font-size: 13px; color: #15803d; margin-top: 2px;">
+          All <strong>{{ chain_result.entries_count }}</strong> chronological entries mathematically verified from Genesis.
+          Current Head Hash: {{ ui.hash_display(chain_result.head_hash) }}
+        </p>
+      </div>
+    </div>
+    
+    <form action="/cases/{{ case.id }}/verify" method="POST" style="margin: 0; display: flex; align-items: center; gap: var(--space-3);">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+        <input type="checkbox" name="verify_files" value="1" style="cursor: pointer;">
+        Re-verify vault files
+      </label>
+      <button type="submit" class="btn btn-secondary" style="font-size: 13px; border-color: #86efac; color: #166534; background: white;">
+        <svg width="14" height="14"><use href="#icon-refresh"></use></svg>
+        <span>Verify Chain</span>
+      </button>
+    </form>
+  </div>
+{% else %}
+  <div style="background-color: #fef2f2; border: 2px solid #ef4444; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-4);">
+      <div style="width: 40px; height: 40px; border-radius: var(--radius-full); background-color: #fee2e2; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="22" height="22" style="color: #dc2626;"><use href="#icon-alert-triangle"></use></svg>
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <h3 style="font-size: 16px; font-weight: 700; color: #991b1b; margin: 0;">CRITICAL INTEGRITY BREACH: CUSTODY CHAIN BROKEN</h3>
+          {{ ui.status_chip("BROKEN") }}
+        </div>
+        <p style="font-size: 13px; color: #b91c1c; margin-top: 2px;">
+          Chain validation failed at <strong>Entry #{{ chain_result.broken_at_entry }}</strong> (Sequence {{ chain_result.sequence }}).
+          Reason: {{ chain_result.reason }}
+        </p>
+      </div>
+    </div>
+
+    <form action="/cases/{{ case.id }}/verify" method="POST" style="margin: 0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger" style="font-size: 13px;">
+        <svg width="14" height="14"><use href="#icon-refresh"></use></svg>
+        <span>Re-check Chain</span>
+      </button>
+    </form>
+  </div>
+{% endif %}
+
+{# Visual Linked Hash Chain (B5) #}
+{% if entries %}
+<div class="card" style="margin-bottom: var(--space-5);">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; align-items: center; gap: var(--space-2);">
+      <svg width="18" height="18" style="color: var(--primary-600);"><use href="#icon-shield-check"></use></svg>
+      <span class="card-title">Cryptographic Hash Chain Visualization</span>
+    </div>
+    <span class="stat-meta">{{ entries|length }} Chronological Linked Blocks</span>
+  </div>
+  <div class="card-body" style="overflow-x: auto; padding: var(--space-5);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); min-width: max-content;">
+      {% for e in entries %}
+        {% set is_broken = (chain_result.status == 'BROKEN' and e.id >= chain_result.broken_at_entry) %}
+        <div class="chain-block" style="background: {{ 'var(--status-compromised-bg)' if is_broken else 'var(--status-verified-bg)' }}; border: 1px solid {{ 'var(--status-compromised-dot)' if is_broken else 'var(--status-verified-dot)' }}; border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); width: 220px; flex-shrink: 0; box-shadow: var(--shadow-sm); position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 13px; color: {{ 'var(--status-compromised-text)' if is_broken else 'var(--status-verified-text)' }};">Block #{{ e.id }}</strong>
+            <span class="chip {{ 'chip-compromised' if is_broken else 'chip-verified' }}" style="font-size: 10px; padding: 1px 6px;">
+              {{ 'BROKEN' if is_broken else 'INTACT' }}
+            </span>
+          </div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">{{ e.action }}</div>
+          <div style="font-size: 10px; color: var(--text-subtle); margin-bottom: 6px;">{{ e.timestamp_utc[:19] }}</div>
+          <div style="font-family: var(--font-mono); font-size: 10px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 2px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="SHA-256: {{ e.entry_hash }}">
+            {{ e.entry_hash[:10] }}...{{ e.entry_hash[-6:] }}
+          </div>
+        </div>
+        {% if not loop.last %}
+          <div style="font-size: 20px; font-weight: 700; color: {{ '#ef4444' if is_broken else '#86efac' }};">&rarr;</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Filter Bar #}
+<div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-5); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);">
+  <form method="GET" style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin: 0;">
+    <div style="display: flex; align-items: center; gap: var(--space-2);">
+      <label for="action" style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Action:</label>
+      <select id="action" name="action" class="form-select" style="font-size: 13px; padding: 4px 10px; width: auto;" onchange="this.form.submit()">
+        <option value="All" {{ 'selected' if action_filter == 'All' else '' }}>All Actions</option>
+        <option value="CASE_CREATED" {{ 'selected' if action_filter == 'CASE_CREATED' else '' }}>CASE_CREATED</option>
+        <option value="UPLOAD" {{ 'selected' if action_filter == 'UPLOAD' else '' }}>UPLOAD</option>
+        <option value="DOWNLOAD" {{ 'selected' if action_filter == 'DOWNLOAD' else '' }}>DOWNLOAD</option>
+        <option value="VERIFY_OK" {{ 'selected' if action_filter == 'VERIFY_OK' else '' }}>VERIFY_OK</option>
+        <option value="VERIFY_FAIL" {{ 'selected' if action_filter == 'VERIFY_FAIL' else '' }}>VERIFY_FAIL</option>
+        <option value="STATUS_CHANGED" {{ 'selected' if action_filter == 'STATUS_CHANGED' else '' }}>STATUS_CHANGED</option>
+        <option value="MEMBER_ASSIGNED" {{ 'selected' if action_filter == 'MEMBER_ASSIGNED' else '' }}>MEMBER_ASSIGNED</option>
+        <option value="MEMBER_REMOVED" {{ 'selected' if action_filter == 'MEMBER_REMOVED' else '' }}>MEMBER_REMOVED</option>
+        <option value="LEGAL_HOLD_ENABLED" {{ 'selected' if action_filter == 'LEGAL_HOLD_ENABLED' else '' }}>LEGAL_HOLD_ENABLED</option>
+        <option value="LEGAL_HOLD_DISABLED" {{ 'selected' if action_filter == 'LEGAL_HOLD_DISABLED' else '' }}>LEGAL_HOLD_DISABLED</option>
+        <option value="METADATA_UPDATE" {{ 'selected' if action_filter == 'METADATA_UPDATE' else '' }}>METADATA_UPDATE</option>
+        <option value="WITHDRAW" {{ 'selected' if action_filter == 'WITHDRAW' else '' }}>WITHDRAW</option>
+      </select>
+    </div>
+    {% if action_filter != 'All' %}
+      <a href="/cases/{{ case.id }}/custody" class="btn btn-secondary" style="font-size: 12px; padding: 4px 8px;">Reset Filter</a>
+    {% endif %}
+  </form>
+
+  <div style="font-size: 13px; color: var(--text-muted);">
+    Showing <strong>{{ entries|length }}</strong> chronological custody records
+  </div>
+</div>
+
+{# Custody Table #}
+<div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm);">
+  <div style="overflow-x: auto;">
+    <table class="table" style="margin-bottom: 0;">
+      <thead>
+        <tr>
+          <th style="width: 50px;">#</th>
+          <th style="width: 160px;">Timestamp (UTC)</th>
+          <th style="width: 140px;">Investigator</th>
+          <th style="width: 140px;">Action</th>
+          <th style="width: 160px;">Evidence Item</th>
+          <th>Prev Hash &bull; Entry Hash (SHA-256)</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not entries %}
+          <tr>
+            <td colspan="7" style="text-align: center; padding: var(--space-6); color: var(--text-muted);">
+              No custody log records match the selected filter.
+            </td>
+          </tr>
+        {% else %}
+          {% for e in entries %}
+            <tr id="entry-{{ e.id }}" style="{{ 'background-color: #fef2f2;' if (chain_result.status == 'BROKEN' and e.id == chain_result.broken_at_entry) else '' }}">
+              <td style="font-family: var(--font-mono); font-weight: 600; color: var(--text-muted);">
+                #{{ e.id }}
+              </td>
+              <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">
+                {{ e.timestamp_utc }}
+              </td>
+              <td style="font-size: 13px;">
+                {% if e.user_name %}
+                  <strong>{{ e.user_name }}</strong>
+                  <div style="font-size: 11px; color: var(--text-subtle);">@{{ e.username }}</div>
+                {% else %}
+                  <span style="color: var(--text-subtle);">System / Watchdog</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if e.action in ['UPLOAD', 'CASE_CREATED', 'LEGAL_HOLD_ENABLED'] %}
+                  <span class="chip chip-verified" style="font-size: 11px;">{{ e.action }}</span>
+                {% elif e.action in ['VERIFY_FAIL', 'WITHDRAW'] %}
+                  <span class="chip chip-compromised" style="font-size: 11px;">{{ e.action }}</span>
+                {% elif e.action in ['STATUS_CHANGED', 'MEMBER_ASSIGNED', 'MEMBER_REMOVED', 'METADATA_UPDATE'] %}
+                  <span class="chip chip-progress" style="font-size: 11px;">{{ e.action }}</span>
+                {% else %}
+                  <span class="chip chip-unknown" style="font-size: 11px;">{{ e.action }}</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 13px;">
+                {% if e.evidence_id %}
+                  <a href="/cases/{{ case.id }}/evidence/{{ e.evidence_id }}" style="font-weight: 600; color: var(--brand-primary); text-decoration: none;">
+                    {{ e.evidence_name or ('Evidence #' ~ e.evidence_id) }}
+                  </a>
+                {% else %}
+                  <span style="color: var(--text-subtle);">&mdash;</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+                    <span style="color: var(--text-subtle); width: 36px;">Prev:</span>
+                    {{ ui.hash_display(e.prev_hash, truncate=True) }}
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+                    <span style="color: var(--text-subtle); width: 36px; font-weight: 600;">Curr:</span>
+                    {{ ui.hash_display(e.entry_hash, truncate=True) }}
+                  </div>
+                </div>
+              </td>
+              <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); max-width: 280px; word-break: break-all;">
+                <code>{{ e.detail_json }}</code>
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Bottom Navigation / Next Step (B1) #}
+<div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+  <span style="font-size: 13px; color: var(--text-muted);">Step 3 of 5 in forensic workflow: Run automated artifact analysis (Metadata, Network PCAP, Authentication Logs).</span>
+  <a href="/cases/{{ case.id }}/analysis" class="btn btn-primary" style="font-size: 13px;">
+    <svg width="14" height="14"><use href="#icon-system"></use></svg>
+    <span>Next: Run Forensic Analysis &rarr;</span>
+  </a>
+</div>
+{% endblock %}

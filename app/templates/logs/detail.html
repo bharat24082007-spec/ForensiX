@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Log Analysis - {{ evidence.display_name }} - ForensiX{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Evidence", "/cases/" ~ case.id ~ "/evidence"), (evidence.display_name, "/cases/" ~ case.id ~ "/evidence/" ~ evidence.id), ("Log Analysis", None)]) }}
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, msg in messages %}
+      <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+        {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+        {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+        {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+        {{ msg }}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{% include "cases/case_header.html" %}
+
+{# Navigation & Action Bar #}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+  <div style="display: flex; align-items: center; gap: var(--space-3);">
+    <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}" class="btn btn-secondary" style="font-size: 13px;">
+      &larr; Back to Evidence Details
+    </a>
+    <h2 style="font-size: 18px; font-weight: 700; color: var(--text-main); margin: 0;">
+      Log Analyser: <code style="font-size: 16px;">{{ evidence.display_name }}</code>
+    </h2>
+    {{ ui.status_chip(evidence.integrity_status) }}
+  </div>
+
+  <div style="display: flex; gap: var(--space-2); align-items: center;">
+    <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/logs/export.json" class="btn btn-secondary" style="font-size: 12px;">
+      Export JSON
+    </a>
+    <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/logs/export.csv" class="btn btn-secondary" style="font-size: 12px;">
+      Export CSV
+    </a>
+    {% if can_analyze %}
+      <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/logs?refresh=1" class="btn btn-primary" style="font-size: 12px;">
+        <svg width="14" height="14"><use href="#icon-refresh"></use></svg>
+        <span>Re-analyze</span>
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+{# Investigative Advisory Banner (Non-judgmental language) #}
+<div style="background-color: #f8fafc; border: 1px solid var(--border-subtle); border-left: 4px solid #3b82f6; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5);">
+  <div style="display: flex; align-items: flex-start; gap: var(--space-3);">
+    <svg width="20" height="20" style="color: #2563eb; flex-shrink: 0; margin-top: 2px;"><use href="#icon-shield"></use></svg>
+    <div>
+      <h4 style="font-size: 13px; font-weight: 700; color: #1e3a8a; margin: 0 0 2px 0;">
+        Forensic Investigative Advisory &amp; Due Diligence Notice
+      </h4>
+      <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
+        Automated findings are indicators categorized as <strong>suspicious, needs review</strong>. IP addresses and user agents represent communication endpoints and network leads, not confirmed physical or legal identities. Line-by-line verification is required before drawing conclusions.
+      </p>
+    </div>
+  </div>
+</div>
+
+{# Analysis Configuration Card #}
+{% if can_analyze %}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header">
+      <span class="card-title">Log Parsing Pipeline &amp; Assumptions</span>
+      <span class="stat-meta">Plaintext Fingerprint: <code>{{ evidence.sha256[:16] }}...</code></span>
+    </div>
+    <div class="card-body">
+      <form action="/cases/{{ case.id }}/evidence/{{ evidence.id }}/logs/analyze" method="POST" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 160px; gap: var(--space-4); align-items: flex-end;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div>
+          <label for="log_format" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">
+            Log Format
+          </label>
+          <select id="log_format" name="log_format" style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="auth.log" {% if default_format == 'auth.log' %}selected{% endif %}>Linux SSH (auth.log)</option>
+            <option value="web.log" {% if default_format == 'web.log' %}selected{% endif %}>Apache / Nginx Combined Access Log</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="year_assumption" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">
+            Year Assumption
+          </label>
+          <input type="number" id="year_assumption" name="year_assumption" value="2026" min="1990" max="2050"
+            style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+        </div>
+
+        <div>
+          <label for="tz_offset_hours" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">
+            Timezone Offset (UTC Hours)
+          </label>
+          <input type="number" id="tz_offset_hours" name="tz_offset_hours" value="0" min="-12" max="14"
+            style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+        </div>
+
+        <div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 13px;">
+            Parse &amp; Correlate
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+{# Metric Cards Strip #}
+<div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: var(--space-6);">
+  <div class="stat-card">
+    <span class="stat-label">Lines Parsed</span>
+    <span class="stat-value">{{ analysis.total_lines_parsed if analysis else events|length }}</span>
+    <span class="stat-meta">Exact 1-based indexing</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Timeline Events</span>
+    <span class="stat-value">{{ events|length }}</span>
+    <span class="stat-meta">events table</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Attacker Leads (IOCs)</span>
+    <span class="stat-value">{{ iocs|length }}</span>
+    <span class="stat-meta">Flagged source IPs</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Threat Findings</span>
+    <span class="stat-value" style="color: {% if findings %}#e11d48{% else %}#059669{% endif %};">
+      {{ findings|length }}
+    </span>
+    <span class="stat-meta">Rule-based correlations</span>
+  </div>
+</div>
+
+{# Suspicious Threat Findings Strip #}
+{% if findings %}
+  <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-6);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3);">
+      <div style="display: flex; align-items: center; gap: var(--space-2);">
+        <svg width="20" height="20" style="color: #e11d48;"><use href="#icon-alert-triangle"></use></svg>
+        <h3 style="font-size: 16px; font-weight: 700; color: #9f1239; margin: 0;">
+          Automated Threat Findings ({{ findings|length }})
+        </h3>
+      </div>
+      <span style="font-size: 12px; color: #9f1239;">Click "View Raw Lines" to inspect original forensic evidence</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+      {% for f in findings %}
+        <div style="background: white; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3);">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: 4px; flex-wrap: wrap;">
+              <strong style="color: #991b1b; font-size: 14px;">{{ f.rule }}</strong>
+              <span class="chip {% if f.severity == 'Critical' or f.severity == 'High' %}chip-compromised{% elif f.severity == 'Medium' %}chip-suspicious{% else %}chip-neutral{% endif %}" style="font-size: 11px;">
+                {{ f.severity }}
+              </span>
+              {% if f.src_ip %}
+                <code style="font-size: 12px; background: #fee2e2; padding: 1px 5px; border-radius: 3px;">Lead IP: {{ f.src_ip }}</code>
+              {% endif %}
+              <span style="font-size: 11px; color: var(--text-subtle);">Events: {{ f.count }}</span>
+              <span style="font-size: 11px; color: var(--text-subtle);">Status: {{ f.status }}</span>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 var(--space-2) 0;">{{ f.evidence_lines }}</p>
+          </div>
+
+          <div>
+            {# Parse line numbers from evidence_lines to allow inspection #}
+            <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;"
+              onclick="inspectEvidenceLines('{{ f.rule }}', '{{ f.evidence_lines }}')">
+              View Raw Lines
+            </button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{# Raw Line Inspector Modal / Drawer Container #}
+<div id="line-inspector" style="display: none; background-color: var(--bg-surface); border: 2px solid var(--border-strong); border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-6); box-shadow: var(--shadow-md);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+    <div>
+      <h4 id="inspector-title" style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">Verbatim Raw Evidence Lines</h4>
+      <span style="font-size: 12px; color: var(--text-muted);">Exact lines extracted directly from encrypted vault storage without modification</span>
+    </div>
+    <button type="button" class="btn btn-secondary" style="font-size: 11px;" onclick="closeLineInspector()">Close Inspector</button>
+  </div>
+  <div id="inspector-content" style="background: #0f172a; color: #e2e8f0; font-family: var(--font-mono); font-size: 12px; padding: var(--space-3); border-radius: var(--radius-sm); max-height: 280px; overflow-y: auto;">
+    Loading lines...
+  </div>
+</div>
+
+{# Extracted Attacker IOCs #}
+<div class="card" style="margin-bottom: var(--space-6);">
+  <div class="card-header">
+    <span class="card-title">Extracted Network Indicators (IOCs)</span>
+    <span class="stat-meta">{{ iocs|length }} IP leads</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if iocs %}
+      <div class="table-container" style="border: none; border-radius: 0;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Host Address (Lead)</th>
+              <th>Verdict</th>
+              <th>Source Subsystem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ioc in iocs %}
+              <tr>
+                <td><span class="chip chip-neutral">{{ ioc.type|upper }}</span></td>
+                <td><code>{{ ioc.value }}</code></td>
+                <td>
+                  <span class="chip chip-suspicious">{{ ioc.verdict }}</span>
+                </td>
+                <td class="text-muted" style="font-size: 12px;">{{ ioc.source }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% call ui.empty_state("No Attacker Leads", "No suspicious IP addresses extracted yet.", "icon-search") %}{% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{# Normalized Log Events (Timeline sync) #}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Normalized Chronological Log Events</span>
+    <span class="stat-meta">Showing first 100 of {{ events|length }} records</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if events %}
+      <div class="table-container" style="border: none; border-radius: 0;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Line #</th>
+              <th>Timestamp (UTC)</th>
+              <th>Source IP</th>
+              <th>Target User</th>
+              <th>Action</th>
+              <th>Verbatim Raw Line</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ev in events[:100] %}
+              <tr>
+                <td><code>{{ ev.line_no }}</code></td>
+                <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-subtle);">{{ ev.timestamp_utc }}</td>
+                <td><code>{{ ev.src_ip or '-' }}</code></td>
+                <td>{{ ev.username or '-' }}</td>
+                <td>
+                  <span class="chip {% if 'FAIL' in ev.action or 'INVALID' in ev.action %}chip-suspicious{% elif 'SUCCESS' in ev.action %}chip-verified{% else %}chip-neutral{% endif %}" style="font-size: 11px;">
+                    {{ ev.action }}
+                  </span>
+                </td>
+                <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-main); max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ ev.raw_line }}">
+                  {{ ev.raw_line }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% call ui.empty_state("No Log Events", "Run log analysis to parse lines into the events table.", "icon-file-text") %}{% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function inspectEvidenceLines(ruleName, evidenceLinesText) {
+  var inspector = document.getElementById('line-inspector');
+  var title = document.getElementById('inspector-title');
+  var content = document.getElementById('inspector-content');
+
+  inspector.style.display = 'block';
+  title.innerText = 'Verbatim Raw Evidence Lines for ' + ruleName;
+  content.innerHTML = '<div style="color: #94a3b8;">Fetching exact raw lines from encrypted vault...</div>';
+
+  // Extract bracketed line numbers like [1, 2, 3] or 'Review line: 15'
+  var match = evidenceLinesText.match(/\[([0-9,\s]+)\]/);
+  var lineNums = [];
+  if (match) {
+    lineNums = match[1].split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  } else {
+    var singleMatch = evidenceLinesText.match(/Review line:\s*(\d+)/i);
+    if (singleMatch) {
+      lineNums = [singleMatch[1]];
+    }
+  }
+
+  if (lineNums.length === 0) {
+    content.innerHTML = '<div style="color: #f87171;">No explicit line numbers found in finding description.</div>';
+    return;
+  }
+
+  var linesParam = lineNums.join(',');
+  fetch('/cases/{{ case.id }}/evidence/{{ evidence.id }}/logs/lines?lines=' + encodeURIComponent(linesParam))
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (!data.lines || data.lines.length === 0) {
+        content.innerHTML = '<div style="color: #94a3b8;">No lines could be retrieved.</div>';
+        return;
+      }
+      var html = '<table style="width: 100%; border-collapse: collapse;">';
+      data.lines.forEach(function(row) {
+        html += '<tr style="border-bottom: 1px solid #1e293b;">';
+        html += '<td style="color: #38bdf8; padding: 4px 8px; width: 60px; vertical-align: top; user-select: none;">L' + row.line_no + '</td>';
+        html += '<td style="color: #f1f5f9; padding: 4px 8px; word-break: break-all;">' + escapeHtml(row.content) + '</td>';
+        html += '</tr>';
+      });
+      html += '</table>';
+      content.innerHTML = html;
+    })
+    .catch(function(err) {
+      content.innerHTML = '<div style="color: #f87171;">Failed to load lines: ' + err + '</div>';
+    });
+}
+
+function closeLineInspector() {
+  document.getElementById('line-inspector').style.display = 'none';
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.innerText = str;
+  return div.innerHTML;
+}
+</script>
+
+{% endblock %}

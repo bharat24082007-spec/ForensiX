@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Indicators of Compromise | {{ case.case_no }}{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("IOCs", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {# Standardized Case Header & Tabs #}
+  {% include "cases/case_header.html" %}
+
+  {# Action Toolbar & Filters #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body" style="padding: var(--space-4);">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-4);">
+        <form method="GET" action="/cases/{{ case.id }}/iocs" style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; flex: 1;">
+          <select name="type" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="">All Types</option>
+            {% for t in valid_types %}
+              <option value="{{ t }}" {% if filter_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+
+          <select name="verdict" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="">All Verdicts</option>
+            {% for v in valid_verdicts %}
+              <option value="{{ v }}" {% if filter_verdict == v %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+          </select>
+
+          <button type="submit" class="btn btn-secondary" style="font-size: 12px; padding: var(--space-2) var(--space-3);">Filter</button>
+          {% if filter_type or filter_verdict %}
+            <a href="/cases/{{ case.id }}/iocs" class="btn btn-ghost" style="font-size: 12px; padding: var(--space-2) var(--space-3);">Clear</a>
+          {% endif %}
+        </form>
+
+        <div style="display: flex; gap: var(--space-3); align-items: center;">
+          <a href="/cases/{{ case.id }}/iocs/export.csv" class="btn btn-secondary" style="font-size: 12px; display: flex; align-items: center; gap: var(--space-2);">
+            <svg width="14" height="14"><use href="#icon-download"></use></svg>
+            <span>Export CSV</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Extraction Panel for Analysts / Leads #}
+  {% if can_extract and evidence_list %}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body" style="padding: var(--space-4);">
+      <h3 style="font-size: 14px; font-weight: 600; margin-bottom: var(--space-3); color: var(--text-main);">Extract IOCs from Evidence</h3>
+      <form method="POST" id="extract-form" style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="evidence_id" id="extract-select" style="min-width: 280px; flex: 1; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+          {% for ev in evidence_list %}
+            <option value="{{ ev.id }}">{{ ev.display_name }} ({{ ev.source_type }})</option>
+          {% endfor %}
+        </select>
+        <button type="button" onclick="triggerExtract()" class="btn btn-primary" style="font-size: 13px; padding: var(--space-2) var(--space-4);">
+          Run Extraction
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {# IOC Data Table #}
+  <div class="card">
+    <div class="card-body" style="padding: 0;">
+      {% if iocs %}
+        <div style="overflow-x: auto;">
+          <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border-subtle); background-color: var(--bg-surface-subtle); color: var(--text-muted);">
+                <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Type</th>
+                <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Defanged Indicator</th>
+                <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Verdict</th>
+                <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Source Evidence</th>
+                <th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ioc in iocs %}
+                <tr style="border-bottom: 1px solid var(--border-subtle);">
+                  <td style="padding: var(--space-3) var(--space-4);">
+                    <span style="font-family: monospace; font-size: 11px; padding: 2px 6px; border-radius: var(--radius-sm); background-color: var(--bg-surface-subtle); border: 1px solid var(--border-subtle);">
+                      {{ ioc.type }}
+                    </span>
+                  </td>
+                  <td style="padding: var(--space-3) var(--space-4); font-family: monospace; font-size: 12px; word-break: break-all;">
+                    <code>{{ ioc.defanged_value }}</code>
+                  </td>
+                  <td style="padding: var(--space-3) var(--space-4);">
+                    {{ ui.status_chip(ioc.verdict) }}
+                  </td>
+                  <td style="padding: var(--space-3) var(--space-4); color: var(--text-muted);">
+                    {{ ioc.evidence_name or 'Case Level' }}
+                  </td>
+                  <td style="padding: var(--space-3) var(--space-4); color: var(--text-muted); font-size: 12px;">
+                    {{ ioc.source }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: var(--space-3) var(--space-4); font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle);">
+          Showing {{ iocs | length }} indicator(s). All indicators are defanged for display. Outbound lookups disabled by default.
+        </div>
+      {% else %}
+        <div class="empty-state" style="padding: var(--space-10) var(--space-4); text-align: center;">
+          <svg width="40" height="40" style="color: var(--text-muted); margin-bottom: var(--space-3);"><use href="#icon-search"></use></svg>
+          <h3 style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: var(--space-1);">No Indicators Found</h3>
+          <p style="font-size: 13px; color: var(--text-muted);">Run log or network analysis or trigger extraction above to collect IOCs.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Bottom Navigation / Next Step (B1) #}
+  <div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+    <span style="font-size: 13px; color: var(--text-muted);">Step 5 of 5 in forensic workflow: Compile extracted findings into a signed Section 63 BSA compliance report.</span>
+    <a href="/cases/{{ case.id }}/reports" class="btn btn-primary" style="font-size: 13px;">
+      <svg width="14" height="14" class="icon"><use href="#icon-reports"></use></svg>
+      <span>Next: Generate Report &rarr;</span>
+    </a>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function triggerExtract() {
+    var select = document.getElementById('extract-select');
+    if (!select) return;
+    var evidenceId = select.value;
+    if (!evidenceId) { alert('Please select an evidence item.'); return; }
+    var form = document.getElementById('extract-form');
+    form.action = '/cases/{{ case.id }}/iocs/extract/' + evidenceId;
+    form.submit();
+  }
+</script>
+{% endblock %}

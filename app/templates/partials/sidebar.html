@@ -1,0 +1,50 @@
+<aside class="app-sidebar" aria-label="Main Navigation">
+  <div class="sidebar-header">
+    <div class="brand-logo">
+      <svg width="22" height="22" class="icon" style="color: var(--primary-600);"><use href="#icon-shield"></use></svg>
+      <span>ForensiX</span>
+    </div>
+    <span class="brand-badge">SEC-63</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">Core Operations</div>
+    <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' or request.path in ['/dashboard', '/home', '/'] else '' }}">
+      <svg width="18" height="18" class="icon"><use href="#icon-dashboard"></use></svg>
+      <span>Dashboard</span>
+    </a>
+    <a href="/cases" class="nav-item {{ 'active' if active_nav == 'cases' or request.path.startswith('/cases') else '' }}">
+      <svg width="18" height="18" class="icon"><use href="#icon-cases"></use></svg>
+      <span>Cases</span>
+    </a>
+
+    <div class="nav-section-title" style="margin-top: var(--space-4);">Forensic Verification</div>
+    <a href="/reports" class="nav-item {{ 'active' if active_nav == 'reports' or request.path == '/reports' else '' }}">
+      <svg width="18" height="18" class="icon"><use href="#icon-reports"></use></svg>
+      <span>Reports</span>
+    </a>
+    <a href="/verify-report" class="nav-item {{ 'active' if active_nav == 'verify_report' or request.path == '/verify-report' else '' }}">
+      <svg width="18" height="18" class="icon"><use href="#icon-shield-check"></use></svg>
+      <span>Verify Report</span>
+    </a>
+
+    <div class="nav-section-title" style="margin-top: var(--space-4);">System Management</div>
+    <a href="/system/health" class="nav-item {{ 'active' if request.path in ['/system/health', '/system'] else '' }}">
+      <svg width="18" height="18" class="icon"><use href="#icon-refresh"></use></svg>
+      <span>Health &amp; Chain</span>
+    </a>
+    <a href="/system/backup" class="nav-item {{ 'active' if request.path == '/system/backup' else '' }}">
+      <svg width="18" height="18" class="icon"><use href="#icon-save"></use></svg>
+      <span>Backup &amp; Keys</span>
+    </a>
+    <a href="/system/tools" class="nav-item {{ 'active' if request.path == '/system/tools' else '' }}">
+      <svg width="18" height="18" class="icon"><use href="#icon-system"></use></svg>
+      <span>Tools Diagnostics</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <span>Mode: Single-Host</span>
+    <span style="font-family: var(--font-mono); font-size: 11px;">v1.0.0</span>
+  </div>
+</aside>

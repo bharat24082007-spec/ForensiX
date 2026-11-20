@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Upload Evidence | {{ case.case_no }}{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Evidence", "/cases/" ~ case.id ~ "/evidence"), ("Upload", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% include "cases/case_header.html" %}
+
+  <div class="card" style="max-width: 650px; margin: 0 auto;">
+    <div class="card-header">
+      <span class="card-title">Evidence Intake Pipeline</span>
+      <span class="chip chip-verified">SHA-256 Intake</span>
+    </div>
+    <div class="card-body">
+      <form action="/cases/{{ case.id }}/evidence/upload" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div style="margin-bottom: var(--space-5);">
+          <label style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-2);">Digital Evidence File</label>
+          <div class="dropzone" id="file-dropzone" onclick="document.getElementById('evidence-file-input').click();">
+            <svg width="40" height="40" style="color: var(--text-subtle); margin-bottom: var(--space-2);"><use href="#icon-evidence"></use></svg>
+            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Click to select file or drag and drop</h4>
+            <p style="font-size: 12px; color: var(--text-subtle);">All formats accepted (max 200 MB). Plaintext hash computed in stream.</p>
+            <span id="selected-file-name" style="display: block; margin-top: var(--space-2); font-weight: 600; color: var(--primary-600); font-family: var(--font-mono); font-size: 12px;"></span>
+          </div>
+          <input type="file" id="evidence-file-input" name="file" required style="display: none;" onchange="document.getElementById('selected-file-name').textContent = this.files[0] ? this.files[0].name : '';">
+        </div>
+
+        <div style="margin-bottom: var(--space-4);">
+          <label for="tags" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Tags (comma-separated)</label>
+          <input type="text" id="tags" name="tags" placeholder="e.g. disk_image, pcap, auth_log, workstation_3"
+            style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+        </div>
+
+        <div style="margin-bottom: var(--space-4);">
+          <label for="source_type" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Evidence Source Type</label>
+          <select id="source_type" name="source_type" style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="upload">Direct Artifact Upload</option>
+            <option value="pcap">Network Packet Capture (pcap/pcapng)</option>
+            <option value="log">System / Server Access Log</option>
+            <option value="disk_image">Forensic Disk Export</option>
+            <option value="memory">Volatile Memory Dump</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: var(--space-5);">
+          <label for="notes" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Chain of Custody / Intake Notes</label>
+          <textarea id="notes" name="notes" rows="3" placeholder="Document acquisition context, device serial number, or physical custody handover..."
+            style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px; font-family: var(--font-sans);"></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: var(--space-3);">
+          <a href="/cases/{{ case.id }}/evidence" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary">Process &amp; Vault Intake &rarr;</button>
+        </div>
+      </form>
+    </div>
+    <div class="card-footer" style="font-size: 12px; color: var(--text-subtle);">
+      Intake pipeline streams file to private work directory, hashes plaintext SHA-256, encrypts in 1 MiB AES-256-GCM chunks, sets OS read-only permission, and logs custody trail before wiping plaintext work files.
+    </div>
+  </div>
+{% endblock %}

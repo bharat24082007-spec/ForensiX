@@ -1,0 +1,40 @@
+<header class="app-topbar">
+  <div class="topbar-left">
+    {% block breadcrumb %}
+      <nav class="breadcrumb-trail" aria-label="Breadcrumb">
+        <span style="font-weight: 600; color: var(--text-main);">Dashboard</span>
+      </nav>
+    {% endblock %}
+  </div>
+
+  <div class="topbar-right">
+    <!-- Light / Dark Theme Toggle Button -->
+    <button id="theme-toggle-btn" class="theme-toggle-btn" title="Toggle Light / Dark Theme" aria-label="Toggle theme">
+      <svg width="16" height="16" class="icon"><use href="#icon-moon"></use></svg>
+    </button>
+
+    <!-- Logged-in User Menu with Role -->
+    {% if current_user.is_authenticated %}
+      <div class="user-menu" style="display: flex; align-items: center; gap: var(--space-3); padding-left: var(--space-3); border-left: 1px solid var(--border-subtle);">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; color: var(--primary-600); border: 1px solid var(--border-subtle);">
+            <svg width="14" height="14" class="icon"><use href="#icon-user"></use></svg>
+          </div>
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-main); line-height: 1.2;">{{ current_user.name or current_user.username }}</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span class="chip chip-verified" style="font-size: 10px; padding: 0 5px; height: 16px; line-height: 16px;">{{ current_user.role }}</span>
+            </div>
+          </div>
+        </div>
+        <a href="/account" class="btn btn-secondary btn-sm" title="My Account" style="font-size: 12px; padding: 2px 8px;">Account</a>
+        <form action="/logout" method="POST" style="margin: 0; display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-secondary btn-sm" title="Sign Out" aria-label="Sign Out" style="display: flex; align-items: center; justify-content: center; padding: 4px 8px; color: var(--text-muted);">
+            <svg width="14" height="14" class="icon"><use href="#icon-logout"></use></svg>
+          </button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+</header>

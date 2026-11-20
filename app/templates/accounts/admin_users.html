@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}User Management | ForensiX Platform{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("System", "/system/health"), ("User Administration", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("User Account Administration", "Manage platform users, roles, active states, and credential policies") %}
+    <button type="button" class="btn btn-primary" data-modal-open="create-user-modal">
+      <span>+ Create User</span>
+    </button>
+  {% endcall %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Registered System Personnel</span>
+      <span class="stat-meta">{{ users|length }} total accounts</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <div class="table-container" style="border: none; border-radius: 0;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Full Name</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>MFA</th>
+              <th>Registered</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              <tr>
+                <td>{{ u.id }}</td>
+                <td><strong>{{ u.name }}</strong></td>
+                <td><code>{{ u.username }}</code></td>
+                <td>{{ ui.status_chip(u.role) }}</td>
+                <td>
+                  {% if u.is_active %}
+                    <span class="chip chip-verified"><span class="chip-dot"></span>Active</span>
+                  {% else %}
+                    <span class="chip chip-compromised"><span class="chip-dot"></span>Inactive</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if u.mfa_enabled %}
+                    <span class="chip chip-verified">Enabled</span>
+                  {% else %}
+                    <span class="chip chip-unknown">Disabled</span>
+                  {% endif %}
+                </td>
+                <td style="font-size: 12px; color: var(--text-subtle);">{{ u.created_at }}</td>
+                <td style="text-align: right;">
+                  <div style="display: inline-flex; gap: var(--space-2);">
+                    {% if u.id != current_user.id %}
+                      <form action="/admin/users/{{ u.id }}/toggle" method="POST" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;">
+                          {{ 'Deactivate' if u.is_active else 'Activate' }}
+                        </button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# Create User Modal #}
+  <div id="create-user-modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size: 16px; font-weight: 600;">Create User Account</h3>
+        <button type="button" class="theme-toggle-btn" data-modal-close aria-label="Close modal">&times;</button>
+      </div>
+      <form action="/admin/users/create" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div style="margin-bottom: var(--space-3);">
+            <label style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Full Name</label>
+            <input type="text" name="name" required style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main);">
+          </div>
+          <div style="margin-bottom: var(--space-3);">
+            <label style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Username</label>
+            <input type="text" name="username" required style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main);">
+          </div>
+          <div style="margin-bottom: var(--space-3);">
+            <label style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Role</label>
+            <select name="role" required style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main);">
+              <option value="Analyst">Analyst (Uploads, Analyzes Evidence)</option>
+              <option value="Lead">Lead (Case Creation, Member Assignments, Reports)</option>
+              <option value="Reviewer">Reviewer (Read-Only Case Access)</option>
+              <option value="Admin">Admin (User &amp; System Administration)</option>
+            </select>
+          </div>
+          <div style="margin-bottom: var(--space-3);">
+            <label style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Initial Password</label>
+            <input type="password" name="password" required style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main);">
+            <span style="font-size: 11px; color: var(--text-subtle); margin-top: 2px; display: block;">Policy: 12+ characters with digits and letters.</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

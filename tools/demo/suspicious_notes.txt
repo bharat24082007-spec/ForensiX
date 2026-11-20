@@ -1,0 +1,20 @@
+Incident Investigation Field Notes - Case #2026-FX01
+------------------------------------------------------
+Timestamp of Observation: 2026-01-15 10:25:00 UTC
+Investigating Officer: Lead Forensic Examiner
+
+Identified Threat Infrastructure:
+1. Primary Ingress IP: 198.51.100.77 (Observed in brute-force SSH logs)
+2. Exfiltration Dropzone IP: 203.0.113.195
+3. Malicious Command & Control Domain: c2-update-service.darknet-relay.org
+4. Compromised Internal Relay: 10.0.0.14
+5. Staging Dropper URL: http://phish-secure-portal.info/payloads/dropper.bin
+6. Secondary Exfil URL: https://data-storage-box.biz/upload?ref=2026
+
+Cryptographic Indicators:
+- Backdoor Binary SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+- Stager DLL MD5: c4ca4238a0b923820dcc509a6f75849b
+- Contact Email: adversary@shadow-ops.org
+
+Initial Assessment:
+Suspicious SSH activity detected against edge server; payload exfiltration suspected via HTTP POST.

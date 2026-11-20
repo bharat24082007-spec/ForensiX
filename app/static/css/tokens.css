@@ -1,0 +1,168 @@
+/**
+ * ForensiX Design System Tokens
+ * Inspired by High-End Digital Forensic & SIEM SOC Platforms (Monolith Forensics & Splunk SIEM)
+ * 8px Grid, Charcoal/Navy Deep Slate Palette, High-Contrast Status Indicators
+ */
+
+:root,
+[data-theme="dark"] {
+  /* Default Theme: Deep Cyber Slate (Dark SOC Mode) */
+  --bg-app: #0e131d;
+  --bg-surface: #161c28;
+  --bg-surface-elevated: #1e2637;
+  --bg-subtle: #1c2333;
+  --bg-muted: #273147;
+
+  --border-subtle: #242d40;
+  --border-strong: #34425d;
+  --border-focus: #38bdf8;
+
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --text-inverse: #0b0f19;
+
+  /* Primary Brand Accent (Cyber Sky & Monolith Cobalt) */
+  --primary-50: #082f49;
+  --primary-100: #0c4a6e;
+  --primary-500: #0284c7;
+  --primary-600: #38bdf8;
+  --primary-700: #7dd3fc;
+  --primary-contrast: #0b0f19;
+
+  /* Monolith & SIEM Alert Status Colors */
+  /* Green: Verified / Normal / Resolved / Low */
+  --status-verified-bg: #14532d;
+  --status-verified-text: #86efac;
+  --status-verified-border: #166534;
+  --status-verified-dot: #22c55e;
+  --status-verified-solid: #15803d;
+
+  /* Amber: Suspicious / Needs Review / Medium */
+  --status-suspicious-bg: #713f12;
+  --status-suspicious-text: #fde047;
+  --status-suspicious-border: #854d0e;
+  --status-suspicious-dot: #eab308;
+  --status-suspicious-solid: #b45309;
+
+  /* Orange: High Alerts */
+  --status-high-bg: #7c2d12;
+  --status-high-text: #fdba74;
+  --status-high-border: #9a3412;
+  --status-high-dot: #f97316;
+  --status-high-solid: #c2410c;
+
+  /* Red: Compromised / Broken / Critical */
+  --status-compromised-bg: #7f1d1d;
+  --status-compromised-text: #fca5a5;
+  --status-compromised-border: #991b1b;
+  --status-compromised-dot: #ef4444;
+  --status-compromised-solid: #b91c1c;
+
+  /* Blue / Cyan: In Progress / Open */
+  --status-progress-bg: #0c4a6e;
+  --status-progress-text: #7dd3fc;
+  --status-progress-border: #0369a1;
+  --status-progress-dot: #38bdf8;
+  --status-progress-solid: #0284c7;
+
+  /* Grey: Unknown / Pending / Archival */
+  --status-unknown-bg: #1e293b;
+  --status-unknown-text: #cbd5e1;
+  --status-unknown-border: #334155;
+  --status-unknown-dot: #94a3b8;
+  --status-unknown-solid: #475569;
+
+  /* Typography: System Font Stack with Crisp Monospace */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Radii & Elevation */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55), 0 4px 6px -4px rgba(0, 0, 0, 0.45);
+
+  /* Spacing Grid (8px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Layout dimensions */
+  --sidebar-width: 250px;
+  --topbar-height: 56px;
+}
+
+/* Light Theme Variables (When switched via toggle) */
+[data-theme="light"] {
+  --bg-app: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-muted: #e2e8f0;
+
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-focus: #0284c7;
+
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #64748b;
+  --text-inverse: #ffffff;
+
+  --primary-50: #f0f9ff;
+  --primary-100: #e0f2fe;
+  --primary-500: #0284c7;
+  --primary-600: #0369a1;
+  --primary-700: #075985;
+  --primary-contrast: #ffffff;
+
+  --status-verified-bg: #ecfdf5;
+  --status-verified-text: #065f46;
+  --status-verified-border: #a7f3d0;
+  --status-verified-dot: #10b981;
+  --status-verified-solid: #16a34a;
+
+  --status-suspicious-bg: #fffbeb;
+  --status-suspicious-text: #92400e;
+  --status-suspicious-border: #fde68a;
+  --status-suspicious-dot: #f59e0b;
+  --status-suspicious-solid: #d97706;
+
+  --status-high-bg: #fff7ed;
+  --status-high-text: #9a3412;
+  --status-high-border: #fed7aa;
+  --status-high-dot: #ea580c;
+  --status-high-solid: #ea580c;
+
+  --status-compromised-bg: #fef2f2;
+  --status-compromised-text: #991b1b;
+  --status-compromised-border: #fecaca;
+  --status-compromised-dot: #ef4444;
+  --status-compromised-solid: #dc2626;
+
+  --status-progress-bg: #eff6ff;
+  --status-progress-text: #1e40af;
+  --status-progress-border: #bfdbfe;
+  --status-progress-dot: #3b82f6;
+  --status-progress-solid: #2563eb;
+
+  --status-unknown-bg: #f1f5f9;
+  --status-unknown-text: #475569;
+  --status-unknown-border: #cbd5e1;
+  --status-unknown-dot: #94a3b8;
+  --status-unknown-solid: #64748b;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}

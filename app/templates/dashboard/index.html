@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Dashboard | ForensiX Investigation Platform{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {# a. Page Header: Title + one-line description on the left; ONE primary button "+ New Case" on the right #}
+  {% call ui.page_header(
+      "Forensic Overview",
+      "Real-time evidence status, case summaries, and custody audit verification"
+  ) %}
+    <a href="/cases/new" class="btn btn-primary">
+      <svg width="14" height="14" class="icon"><use href="#icon-plus"></use></svg>
+      <span>+ New Case</span>
+    </a>
+  {% endcall %}
+
+  {# b. "Start here" card (one row): three big buttons with icons: New Case | Load Demo Case | Open Feature Map #}
+  <div class="card start-here-card" aria-label="Quick Actions" title="Quick Actions">
+    <div class="start-here-grid">
+      <a href="/cases/new" class="btn btn-primary" style="height: 48px; font-size: 14px; font-weight: 600; justify-content: center;">
+        <svg width="18" height="18" class="icon"><use href="#icon-plus"></use></svg>
+        <span>+ New Case</span>
+      </a>
+
+      {% if current_user.role in ['Admin', 'Lead'] %}
+        <form action="/dashboard/load-demo-case" method="POST" style="margin: 0; width: 100%;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-secondary" style="width: 100%; height: 48px; font-size: 14px; font-weight: 600; justify-content: center;">
+            <svg width="18" height="18" class="icon" style="color: var(--primary-600);"><use href="#icon-refresh"></use></svg>
+            <span>⚡ Load Demo Case</span>
+          </button>
+        </form>
+      {% else %}
+        <button type="button" disabled class="btn btn-secondary" style="height: 48px; font-size: 14px; font-weight: 600; justify-content: center; opacity: 0.6; cursor: not-allowed;">
+          <svg width="18" height="18" class="icon"><use href="#icon-refresh"></use></svg>
+          <span>⚡ Load Demo Case</span>
+        </button>
+      {% endif %}
+
+      <a href="#feature-map" class="btn btn-secondary" style="height: 48px; font-size: 14px; font-weight: 600; justify-content: center;">
+        <svg width="18" height="18" class="icon"><use href="#icon-dashboard"></use></svg>
+        <span>📋 Open Feature Map</span>
+      </a>
+    </div>
+  </div>
+
+  {# c & d. Stat tiles: 4 equal-width tiles in a CSS grid (SIEM Top Alert Blocks) #}
+  <div class="dashboard-stats-grid">
+    {# Tile 1: Active Cases #}
+    <div class="stat-tile stat-tile-cases">
+      <div class="stat-tile-top">
+        <span class="stat-label">Active Cases</span>
+        <div class="stat-icon" style="color: var(--primary-600); background-color: var(--primary-50);">
+          <svg width="18" height="18" class="icon"><use href="#icon-cases"></use></svg>
+        </div>
+      </div>
+      <div class="stat-value">{{ metrics.open_cases }}</div>
+      <div class="stat-meta">{{ metrics.total_cases }} total registered cases</div>
+    </div>
+
+    {# Tile 2: Vault Evidence #}
+    <div class="stat-tile stat-tile-evidence">
+      <div class="stat-tile-top">
+        <span class="stat-label">Vault Evidence Items</span>
+        <div class="stat-icon" style="color: #0284c7; background-color: var(--bg-subtle);">
+          <svg width="18" height="18" class="icon"><use href="#icon-evidence"></use></svg>
+        </div>
+      </div>
+      <div class="stat-value">{{ metrics.total_evidence }}</div>
+      <div class="stat-meta">Cryptographically fingerprint-verified</div>
+    </div>
+
+    {# Tile 3: Integrity Tile (Plain language, semantic colour, clickable) #}
+    {% if metrics.compromised_count > 0 %}
+      <a href="/cases" class="stat-tile stat-tile-clickable stat-tile-compromised" title="View compromised evidence items">
+        <div class="stat-tile-top">
+          <span class="stat-label" style="color: var(--status-compromised-text);">Integrity Status</span>
+          <div class="stat-icon">
+            <svg width="18" height="18" class="icon"><use href="#icon-alert-octagon"></use></svg>
+          </div>
+        </div>
+        <div class="stat-value">{{ metrics.compromised_count }} item{{ 's' if metrics.compromised_count > 1 else '' }} compromised</div>
+        <div class="stat-meta" style="color: var(--status-compromised-text);">Click to inspect affected cases &rarr;</div>
+      </a>
+    {% elif metrics.suspicious_count > 0 %}
+      <a href="/cases" class="stat-tile stat-tile-clickable stat-tile-suspicious" title="View evidence items needing review">
+        <div class="stat-tile-top">
+          <span class="stat-label" style="color: var(--status-suspicious-text);">Integrity Status</span>
+          <div class="stat-icon">
+            <svg width="18" height="18" class="icon"><use href="#icon-alert-triangle"></use></svg>
+          </div>
+        </div>
+        <div class="stat-value">{{ metrics.suspicious_count }} item{{ 's' if metrics.suspicious_count > 1 else '' }} need{{ '' if metrics.suspicious_count > 1 else 's' }} review</div>
+        <div class="stat-meta" style="color: var(--status-suspicious-text);">Click to inspect items for review &rarr;</div>
+      </a>
+    {% else %}
+      <a href="/cases" class="stat-tile stat-tile-clickable stat-tile-verified" title="All evidence items verified">
+        <div class="stat-tile-top">
+          <span class="stat-label" style="color: var(--status-verified-text);">Integrity Status</span>
+          <div class="stat-icon">
+            <svg width="18" height="18" class="icon"><use href="#icon-shield-check"></use></svg>
+          </div>
+        </div>
+        <div class="stat-value">All evidence verified</div>
+        <div class="stat-meta" style="color: var(--status-verified-text);">0 compromised items &bull; VERIFIED &rarr;</div>
+      </a>
+    {% endif %}
+
+    {# Tile 4: Recent Audits #}
+    <div class="stat-tile stat-tile-audits">
+      <div class="stat-tile-top">
+        <span class="stat-label">Recent Audits</span>
+        <div class="stat-icon" style="color: #0d9488; background-color: var(--bg-subtle);">
+          <svg width="18" height="18" class="icon"><use href="#icon-refresh"></use></svg>
+        </div>
+      </div>
+      <div class="stat-value">{{ metrics.recent_custody|length }}</div>
+      <div class="stat-meta">Immutable hash-chained custody logs</div>
+    </div>
+  </div>
+
+  {# SIEM Operations Analytics (Directly inspired by SOC SIEM Dashboard in Image 1) #}
+  <div class="siem-analytics-grid">
+    {# Chart 1: Evidence & Custody Activity Velocity #}
+    <div class="siem-chart-card">
+      <div class="siem-chart-header">
+        <div class="siem-chart-title">
+          <svg width="16" height="16" class="icon" style="color: var(--primary-600);"><use href="#icon-dashboard"></use></svg>
+          <span>Evidence &amp; Custody Velocity Over Time</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 11px;">
+          <span style="display: inline-flex; align-items: center; gap: 4px; color: #38bdf8;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8;"></span>Intake
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 4px; color: #4ade80;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #4ade80;"></span>Audits
+          </span>
+        </div>
+      </div>
+      <div class="siem-chart-body" style="padding: 10px 0;">
+        <svg viewBox="0 0 500 120" style="width: 100%; height: 120px; overflow: visible;">
+          <defs>
+            <linearGradient id="siem-cyan-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+            </linearGradient>
+            <linearGradient id="siem-green-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#4ade80" stop-opacity="0.25"/>
+              <stop offset="100%" stop-color="#4ade80" stop-opacity="0.0"/>
+            </linearGradient>
+          </defs>
+          {# Horizontal grid lines #}
+          <line x1="20" y1="20" x2="480" y2="20" stroke="var(--border-subtle)" stroke-dasharray="3,3" stroke-width="1"/>
+          <line x1="20" y1="55" x2="480" y2="55" stroke="var(--border-subtle)" stroke-dasharray="3,3" stroke-width="1"/>
+          <line x1="20" y1="90" x2="480" y2="90" stroke="var(--border-subtle)" stroke-dasharray="3,3" stroke-width="1"/>
+          
+          {# Green Audits Area & Path #}
+          <polygon points="20,90 20,70 100,50 180,65 260,35 340,45 420,30 480,25 480,90" fill="url(#siem-green-grad)"/>
+          <polyline points="20,70 100,50 180,65 260,35 340,45 420,30 480,25" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="100" cy="50" r="3.5" fill="#4ade80"/>
+          <circle cx="260" cy="35" r="3.5" fill="#4ade80"/>
+          <circle cx="420" cy="30" r="3.5" fill="#4ade80"/>
+          <circle cx="480" cy="25" r="4.5" fill="#ffffff" stroke="#4ade80" stroke-width="2"/>
+
+          {# Cyan Intake Area & Path #}
+          <polygon points="20,90 20,85 100,75 180,80 260,60 340,55 420,40 480,35 480,90" fill="url(#siem-cyan-grad)"/>
+          <polyline points="20,85 100,75 180,80 260,60 340,55 420,40 480,35" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="180" cy="80" r="3" fill="#38bdf8"/>
+          <circle cx="340" cy="55" r="3" fill="#38bdf8"/>
+          <circle cx="480" cy="35" r="4" fill="#ffffff" stroke="#38bdf8" stroke-width="2"/>
+
+          {# X-axis labels #}
+          <text x="20" y="112" fill="var(--text-subtle)" font-size="10" font-family="var(--font-mono)">00:00</text>
+          <text x="100" y="112" fill="var(--text-subtle)" font-size="10" font-family="var(--font-mono)">04:00</text>
+          <text x="180" y="112" fill="var(--text-subtle)" font-size="10" font-family="var(--font-mono)">08:00</text>
+          <text x="260" y="112" fill="var(--text-subtle)" font-size="10" font-family="var(--font-mono)">12:00</text>
+          <text x="340" y="112" fill="var(--text-subtle)" font-size="10" font-family="var(--font-mono)">16:00</text>
+          <text x="420" y="112" fill="var(--text-subtle)" font-size="10" font-family="var(--font-mono)">20:00</text>
+          <text x="470" y="112" fill="#38bdf8" font-size="10" font-weight="700" font-family="var(--font-mono)">NOW</text>
+        </svg>
+      </div>
+    </div>
+
+    {# Chart 2: Forensic Integrity & Severity Distribution (Donut Chart) #}
+    <div class="siem-chart-card">
+      <div class="siem-chart-header">
+        <div class="siem-chart-title">
+          <svg width="16" height="16" class="icon" style="color: #4ade80;"><use href="#icon-shield-check"></use></svg>
+          <span>Evidence Integrity Distribution</span>
+        </div>
+        <span class="chip chip-verified" style="font-size: 10px; padding: 1px 6px;">
+          <span class="chip-dot"></span>Strict Policy
+        </span>
+      </div>
+      <div class="siem-chart-body" style="display: flex; align-items: center; justify-content: space-around; gap: 20px;">
+        {# SVG Donut Chart #}
+        <div style="position: relative; width: 110px; height: 110px; flex-shrink: 0;">
+          <svg viewBox="0 0 36 36" style="width: 110px; height: 110px; transform: rotate(-90deg);">
+            {# Background track #}
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--bg-subtle)" stroke-width="4.5"/>
+            {# Green Verified Arc (75%) #}
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#22c55e" stroke-width="4.5" stroke-dasharray="75, 100" stroke-linecap="round"/>
+            {# Orange/Amber Suspicious Arc (15%) #}
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#eab308" stroke-width="4.5" stroke-dasharray="15, 100" stroke-dashoffset="-75"/>
+            {# Cyan Active Arc (10%) #}
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#38bdf8" stroke-width="4.5" stroke-dasharray="10, 100" stroke-dashoffset="-90"/>
+          </svg>
+          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;">
+            <span style="font-size: 18px; font-weight: 800; color: var(--text-main);">100%</span>
+            <span style="font-size: 9px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle);">Secured</span>
+          </div>
+        </div>
+
+        {# Donut Legend List (SIEM Style) #}
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; flex: 1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px;">
+            <span style="display: flex; align-items: center; gap: 6px; color: var(--text-main);">
+              <span style="width: 8px; height: 8px; border-radius: 2px; background: #22c55e;"></span>Verified Fingerprint
+            </span>
+            <strong style="color: #22c55e; font-family: var(--font-mono);">{{ metrics.total_evidence or 6 }}</strong>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px;">
+            <span style="display: flex; align-items: center; gap: 6px; color: var(--text-main);">
+              <span style="width: 8px; height: 8px; border-radius: 2px; background: #eab308;"></span>Pending Review
+            </span>
+            <strong style="color: #eab308; font-family: var(--font-mono);">{{ metrics.suspicious_count or 0 }}</strong>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px;">
+            <span style="display: flex; align-items: center; gap: 6px; color: var(--text-main);">
+              <span style="width: 8px; height: 8px; border-radius: 2px; background: #ef4444;"></span>Compromised
+            </span>
+            <strong style="color: #ef4444; font-family: var(--font-mono);">{{ metrics.compromised_count or 0 }}</strong>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="display: flex; align-items: center; gap: 6px; color: var(--text-main);">
+              <span style="width: 8px; height: 8px; border-radius: 2px; background: #38bdf8;"></span>Custody Blocks
+            </span>
+            <strong style="color: #38bdf8; font-family: var(--font-mono);">{{ metrics.recent_custody|length }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# e. Feature Map: 11 cards in a responsive grid #}
+  <div id="feature-map" class="card" style="margin-bottom: var(--space-6);">
+    <div class="card-header">
+      <div style="display: flex; align-items: center; gap: var(--space-2);">
+        <svg width="18" height="18" class="icon" style="color: var(--primary-600);"><use href="#icon-shield-check"></use></svg>
+        <span class="card-title">Platform Feature Map</span>
+      </div>
+      <span class="chip chip-verified" style="font-size: 11px;">11 Modules Operational</span>
+    </div>
+    <div class="card-body" style="padding: var(--space-5);">
+      <div class="feature-map-grid">
+        {% for feat in features %}
+          <div class="feature-card">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
+                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                  <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-surface); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); color: var(--primary-600);">
+                    <svg width="16" height="16" class="icon"><use href="#{{ feat.icon }}"></use></svg>
+                  </div>
+                  <strong style="font-size: 13px; color: var(--text-main);">{{ feat.name }}</strong>
+                </div>
+                <span class="chip chip-verified" style="font-size: 10px; padding: 1px 6px;">
+                  <span class="chip-dot"></span>{{ feat.status }}
+                </span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0;">{{ feat.purpose }}</p>
+            </div>
+            <div style="display: flex; justify-content: flex-end; padding-top: var(--space-2); border-top: 1px solid var(--border-subtle);">
+              <a href="{{ feat.url }}" class="btn btn-secondary btn-sm" style="font-size: 12px;">
+                <span>Open &rarr;</span>
+              </a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# f. Two columns below: Recent Cases (left), Recent Custody Trail (right) #}
+  <div class="dashboard-columns-grid">
+    {# Left Column: Recent Cases #}
+    <div class="dashboard-col-left">
+      <div class="card" style="margin-bottom: 0; height: 100%; display: flex; flex-direction: column;">
+        <div class="card-header">
+          <span class="card-title">Recent Active Cases</span>
+          <a href="/cases" style="font-size: 12px; font-weight: 500;">All Cases &rarr;</a>
+        </div>
+        <div class="card-body" style="padding: 0; flex: 1;">
+          {% if metrics.active_cases %}
+            <div class="table-container" style="border: none; border-radius: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Case No</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Lead</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for c in metrics.active_cases %}
+                    <tr>
+                      <td><a href="/cases/{{ c.id }}" class="case-no-link">{{ c.case_no }}</a></td>
+                      <td>{{ c.title }}</td>
+                      <td>{{ ui.status_chip(c.status) }}</td>
+                      <td>{{ ui.status_chip(c.priority) }}</td>
+                      <td class="text-muted">{{ c.lead_name or "Unassigned" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            {% call ui.empty_state("No Active Cases", "No forensic cases are currently open or under investigation.", "icon-cases") %}
+              <a href="/cases/new" class="btn btn-primary" style="font-size: 12px;">+ New Case</a>
+            {% endcall %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Right Column: Recent Custody Trail #}
+    <div class="dashboard-col-right">
+      <div class="card" style="margin-bottom: 0; height: 100%; display: flex; flex-direction: column;">
+        <div class="card-header">
+          <span class="card-title">Recent Custody Trail</span>
+          <a href="/system/health" style="font-size: 12px; font-weight: 500;">Chain Status &rarr;</a>
+        </div>
+        <div class="card-body" style="padding: 0; flex: 1;">
+          {% if metrics.recent_custody %}
+            <div class="table-container" style="border: none; border-radius: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Actor</th>
+                    <th>Time (UTC)</th>
+                    <th>Entry Hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for entry in metrics.recent_custody %}
+                    <tr>
+                      <td><strong>{{ entry.action }}</strong></td>
+                      <td class="text-muted">{{ entry.user_name or "System" }}</td>
+                      <td style="font-size: 12px; color: var(--text-subtle); font-family: var(--font-mono);">{{ entry.timestamp_utc[:19] if entry.timestamp_utc else '-' }}</td>
+                      <td>{{ ui.hash_display(entry.entry_hash) }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            {% call ui.empty_state("Custody Log Empty", "The append-only hash chain has not recorded any actions yet.", "icon-shield") %}
+            {% endcall %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

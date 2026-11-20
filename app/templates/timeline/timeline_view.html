@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Investigation Timeline | {{ case.case_no }}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/vis-timeline/vis-timeline.css') }}">
+<style>
+  .vis-item.sev-critical { background-color: var(--status-compromised-bg); border-color: var(--status-compromised-border); color: var(--status-compromised-text); }
+  .vis-item.sev-high     { background-color: var(--status-suspicious-bg); border-color: var(--status-suspicious-border); color: var(--status-suspicious-text); }
+  .vis-item.sev-medium   { background-color: #e0f2fe; border-color: #38bdf8; color: #0369a1; }
+  .vis-item.sev-low      { background-color: var(--status-verified-bg); border-color: var(--status-verified-border); color: var(--status-verified-text); }
+  .vis-item.sev-info     { background-color: var(--bg-surface-subtle); border-color: var(--border-subtle); color: var(--text-muted); }
+  #timeline-container    { height: 260px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-surface); }
+  .sev-chip { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+  .sev-Critical { background: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border); }
+  .sev-High     { background: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border); }
+  .sev-Medium   { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+  .sev-Low      { background: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border); }
+  .sev-Info     { background: var(--bg-surface-subtle); color: var(--text-muted); border: 1px solid var(--border-subtle); }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Timeline", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {# Standardized Case Header & Tabs #}
+  {% include "cases/case_header.html" %}
+
+  {# Action Toolbar & Filters #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body" style="padding: var(--space-4);">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-4);">
+        <form method="GET" action="/cases/{{ case.id }}/timeline" style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; flex: 1;">
+          <select name="source" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="">All Sources</option>
+            {% for s in valid_sources %}
+              <option value="{{ s }}" {% if filters.source_filter == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+
+          <select name="evidence_id" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="">All Evidence</option>
+            {% for ev in evidence_list %}
+              <option value="{{ ev.id }}" {% if filters.evidence_id_filter == ev.id %}selected{% endif %}>{{ ev.display_name }}</option>
+            {% endfor %}
+          </select>
+
+          <select name="severity" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="">All Severities</option>
+            {% for sev in valid_severities %}
+              <option value="{{ sev }}" {% if filters.severity_filter == sev %}selected{% endif %}>{{ sev }}</option>
+            {% endfor %}
+          </select>
+
+          <button type="submit" class="btn btn-secondary" style="font-size: 12px; padding: var(--space-2) var(--space-3);">Filter</button>
+          {% if filters.source_filter or filters.evidence_id_filter or filters.severity_filter %}
+            <a href="/cases/{{ case.id }}/timeline" class="btn btn-ghost" style="font-size: 12px; padding: var(--space-2) var(--space-3);">Clear</a>
+          {% endif %}
+        </form>
+
+        <div style="display: flex; gap: var(--space-3); align-items: center;">
+          <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">🕐 All times are in UTC</span>
+          <a href="{{ url_for('timeline.export_csv', case_id=case.id,
+                              source=filters.source_filter or '',
+                              evidence_id=filters.evidence_id_filter or '',
+                              severity=filters.severity_filter or '') }}"
+             class="btn btn-secondary" style="font-size: 12px; display: flex; align-items: center; gap: var(--space-2);">
+            <svg width="14" height="14"><use href="#icon-download"></use></svg>
+            <span>Export CSV</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Interactive Timeline Visualization Card #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header" style="padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0;">Interactive Timeline View</h3>
+      <span style="font-size: 12px; color: var(--text-muted);">Horizontal chronological overview</span>
+    </div>
+    <div class="card-body" style="padding: var(--space-4);">
+      <div id="timeline-container" data-timeline-url="{{ timeline_data_url }}">
+        <div id="vis-loading" style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 13px;">
+          Loading timeline data&hellip;
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Chronological Event Table #}
+  <div class="card">
+    <div class="card-header" style="padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0;">Chronological Event Log</h3>
+      <span id="event-count-badge" style="font-size: 12px; color: var(--text-muted);"></span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <div id="event-table-wrapper">
+        <div style="text-align: center; padding: var(--space-6); color: var(--text-muted); font-size: 13px;">
+          Loading events&hellip;
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Bottom Navigation / Next Step (B1) #}
+  <div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+    <span style="font-size: 13px; color: var(--text-muted);">Step 5 of 5 in forensic workflow: Compile findings and generate cryptographically signed Section 63 BSA report.</span>
+    <a href="/cases/{{ case.id }}/reports" class="btn btn-primary" style="font-size: 13px;">
+      <svg width="14" height="14"><use href="#icon-reports"></use></svg>
+      <span>Next: Generate &amp; Sign Report &rarr;</span>
+    </a>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='vendor/vis-timeline/vis-timeline.js') }}"></script>
+<script>
+(function () {
+  var container = document.getElementById('timeline-container');
+  if (!container) return;
+  var timelineUrl = container.getAttribute('data-timeline-url');
+  var qs = window.location.search;
+  if (qs) { timelineUrl += (timelineUrl.indexOf('?') === -1 ? qs : '&' + qs.slice(1)); }
+
+  fetch(timelineUrl)
+    .then(function (r) {
+      if (!r.ok) {
+        throw new Error('Server returned HTTP ' + r.status + ' (' + r.statusText + ')');
+      }
+      return r.json();
+    })
+    .then(function (items) {
+      var loadingEl = document.getElementById('vis-loading');
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;">No events found matching your filter criteria.</div>';
+      } else if (typeof vis !== 'undefined' && typeof vis.DataSet === 'function') {
+        var dataset = new vis.DataSet(items);
+        new vis.Timeline(container, dataset, { stack: false, zoomMin: 1000 });
+      }
+
+      var countBadge = document.getElementById('event-count-badge');
+      if (countBadge) {
+        countBadge.textContent = (items ? items.length : 0) + ' event(s) recorded';
+      }
+
+      var tbody = '';
+      if (!items || items.length === 0) {
+        tbody = '<tr><td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--text-muted);font-size:13px;">No events found matching your filter criteria.</td></tr>';
+      } else {
+        items.forEach(function (item) {
+          var raw = item._raw || {};
+          var sev = raw.severity || 'Info';
+          var sevClass = 'sev-' + sev;
+          tbody += '<tr style="border-bottom: 1px solid var(--border-subtle);">' +
+            '<td style="padding: var(--space-3) var(--space-4); font-family: monospace; font-size: 12px;">' + esc(raw.timestamp_utc || '') + '</td>' +
+            '<td style="padding: var(--space-3) var(--space-4);"><span style="font-family: monospace; font-size: 11px; padding: 2px 6px; border-radius: var(--radius-sm); background-color: var(--bg-surface-subtle); border: 1px solid var(--border-subtle);">' + esc(raw.source || '') + '</span></td>' +
+            '<td style="padding: var(--space-3) var(--space-4); font-size: 13px; font-weight: 500;">' + esc(raw.action || '') + '</td>' +
+            '<td style="padding: var(--space-3) var(--space-4); font-family: monospace; font-size: 12px; color: var(--text-muted);">' + esc(raw.src_ip || '—') + '</td>' +
+            '<td style="padding: var(--space-3) var(--space-4); font-size: 12px; color: var(--text-muted);">' + esc(raw.evidence_name || '—') + '</td>' +
+            '<td style="padding: var(--space-3) var(--space-4);"><span class="sev-chip ' + sevClass + '">' + esc(sev) + '</span></td>' +
+          '</tr>';
+        });
+      }
+
+      var wrapper = document.getElementById('event-table-wrapper');
+      if (wrapper) {
+        wrapper.innerHTML =
+          '<div style="overflow-x: auto;">' +
+          '<table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">' +
+          '<thead><tr style="border-bottom: 1px solid var(--border-subtle); background-color: var(--bg-surface-subtle); color: var(--text-muted);">' +
+          '<th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Timestamp (UTC)</th>' +
+          '<th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Source</th>' +
+          '<th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Action / Event</th>' +
+          '<th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Source IP</th>' +
+          '<th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Evidence</th>' +
+          '<th style="padding: var(--space-3) var(--space-4); font-weight: 600;">Severity</th>' +
+          '</tr></thead><tbody>' + tbody + '</tbody></table></div>';
+      }
+    })
+    .catch(function (err) {
+      var loadingEl = document.getElementById('vis-loading');
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      var errMsg = err && err.message ? err.message : String(err);
+      if (container) {
+        container.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--status-compromised-text);padding:var(--space-4);text-align:center;">' +
+          '<strong>Error Loading Timeline</strong>' +
+          '<span style="font-size:12px;margin-top:4px;">' + esc(errMsg) + '</span>' +
+          '</div>';
+      }
+      var wrapper = document.getElementById('event-table-wrapper');
+      if (wrapper) {
+        wrapper.innerHTML = '<div style="text-align:center;padding:var(--space-6);color:var(--status-compromised-text);font-size:13px;">Failed to load events: ' + esc(errMsg) + '</div>';
+      }
+    });
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Verify Forensic Report | ForensiX{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Verify Report", None)]) }}
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: var(--space-8) auto;">
+  <div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-6); box-shadow: var(--shadow-sm);">
+    <h1 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin-bottom: var(--space-2);">
+      Forensic Report Verification
+    </h1>
+    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: var(--space-5);">
+      Upload a ForensiX-generated PDF report or enter its SHA-256 hash to cryptographically verify
+      its authenticity, tamper status, and Ed25519 digital signature.
+    </p>
+
+    {% if result %}
+      {% if result.authentic %}
+        <div style="background-color: #dcfce7; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-5);">
+          <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
+            <svg width="24" height="24" style="color: #16a34a; flex-shrink: 0;"><use href="#icon-shield-check"></use></svg>
+            <strong style="font-size: 16px; color: #166534;">✓ Authentic — Report is unmodified and signature is valid</strong>
+          </div>
+          <div style="font-size: 13px; color: #166534; line-height: 1.6;">
+            <div><strong>Report Reference:</strong> #{{ result.report_id }}</div>
+            <div><strong>Certified Signer:</strong> {{ result.signer }}</div>
+            <div><strong>Timestamp:</strong> {{ result.signed_at }}</div>
+            <div><strong>SHA-256 Digest:</strong> <code style="font-size: 11px;">{{ result.sha256 }}</code></div>
+            <div><strong>Verification Status:</strong> {{ result.reason }}</div>
+          </div>
+        </div>
+      {% else %}
+        <div style="background-color: #fee2e2; border: 1px solid #fecaca; border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-5);">
+          <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
+            <svg width="24" height="24" style="color: #dc2626; flex-shrink: 0;"><use href="#icon-alert-triangle"></use></svg>
+            <strong style="font-size: 16px; color: #991b1b;">✗ Verification Failed — Report is modified or unverified</strong>
+          </div>
+          <div style="font-size: 13px; color: #991b1b; line-height: 1.6;">
+            {% if result.signer %}<div><strong>Alleged Signer:</strong> {{ result.signer }}</div>{% endif %}
+            {% if result.signed_at %}<div><strong>Signed At:</strong> {{ result.signed_at }}</div>{% endif %}
+            {% if result.sha256 %}<div><strong>Computed SHA-256:</strong> <code style="font-size: 11px;">{{ result.sha256 }}</code></div>{% endif %}
+            <div><strong>Failure Reason:</strong> {{ result.reason }}</div>
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" id="verify-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div style="margin-bottom: var(--space-4);">
+        <label for="report_file" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">
+          Upload Report PDF File
+        </label>
+        <input type="file" id="report_file" name="report_file" accept=".pdf"
+               style="display: block; width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+        <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Upload the PDF file to verify its bytes and signature directly.</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: var(--space-3); margin: var(--space-4) 0;">
+        <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Or verify by hash / ID</span>
+        <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+      </div>
+
+      <div style="margin-bottom: var(--space-4);">
+        <label for="report_hash" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">
+          SHA-256 Hash (Optional)
+        </label>
+        <input type="text" id="report_hash" name="report_hash"
+               placeholder="Paste 64-character hex SHA-256 hash"
+               style="display: block; width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px; font-family: var(--font-mono);">
+      </div>
+
+      <div style="margin-bottom: var(--space-5);">
+        <label for="report_id" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">
+          Report ID (Optional)
+        </label>
+        <input type="number" id="report_id" name="report_id" min="1"
+               placeholder="Report ID number"
+               style="display: block; width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: var(--space-2);">
+        <svg width="16" height="16"><use href="#icon-shield-check"></use></svg>
+        <span>Verify Report Authenticity</span>
+      </button>
+    </form>
+
+    <div style="margin-top: var(--space-5); padding: var(--space-3); background-color: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+      <p style="font-size: 11px; color: var(--text-subtle); margin: 0; line-height: 1.5;">
+        <strong>Courtroom Admissibility Verification:</strong> The platform validates the uploaded PDF bytes against the SHA-256 fingerprint registered in the immutable chain of custody and verifies the asymmetric Ed25519 digital signature of the lead forensic investigator.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

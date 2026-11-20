@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Two-Factor Verification | ForensiX Platform</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-app);">
+  <div style="width: 100%; max-width: 400px; padding: var(--space-4);">
+    <div style="text-align: center; margin-bottom: var(--space-6);">
+      <h1 style="font-size: 22px; font-weight: 700; color: var(--text-main);">Two-Factor Challenge</h1>
+      <p style="color: var(--text-muted); font-size: 13px;">Enter the 6-digit TOTP code from your authenticator app</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+          <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+            {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+            {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card" style="box-shadow: var(--shadow-md);">
+      <div class="card-body">
+        <form method="POST" action="/mfa">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div style="margin-bottom: var(--space-5); text-align: center;">
+            <label for="code" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-2);">Security Verification Code</label>
+            <input type="text" id="code" name="code" required maxlength="8" autofocus
+              placeholder="000000"
+              style="width: 200px; padding: var(--space-2); text-align: center; font-size: 24px; font-family: var(--font-mono); letter-spacing: 0.25em; border: 2px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main);">
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: var(--space-3);">
+            Verify Identity &rarr;
+          </button>
+        </form>
+      </div>
+      <div class="card-footer" style="text-align: center; font-size: 12px;">
+        <a href="/login" style="color: var(--text-muted);">&larr; Return to Sign In</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

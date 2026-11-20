@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Network Analysis - {{ evidence.display_name }} - ForensiX{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Evidence", "/cases/" ~ case.id ~ "/evidence"), (evidence.display_name, "/cases/" ~ case.id ~ "/evidence/" ~ evidence.id), ("Network Analysis", None)]) }}
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, msg in messages %}
+      <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+        {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+        {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+        {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+        {{ msg }}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{% include "cases/case_header.html" %}
+
+{# Navigation & Action Bar #}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+  <div style="display: flex; align-items: center; gap: var(--space-3);">
+    <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}" class="btn btn-secondary" style="font-size: 13px;">
+      &larr; Back to Evidence Details
+    </a>
+    <h2 style="font-size: 18px; font-weight: 700; color: var(--text-main); margin: 0;">
+      Network Dissection: <code style="font-size: 16px;">{{ evidence.display_name }}</code>
+    </h2>
+    {{ ui.status_chip(evidence.integrity_status) }}
+  </div>
+
+  <div style="display: flex; gap: var(--space-2); align-items: center;">
+    <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/network/export.json" class="btn btn-secondary" style="font-size: 12px;">
+      Export JSON
+    </a>
+    <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/network/export.csv" class="btn btn-secondary" style="font-size: 12px;">
+      Export CSV
+    </a>
+    {% if can_analyze %}
+      <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/network?refresh=1" class="btn btn-primary" style="font-size: 12px;">
+        <svg width="14" height="14"><use href="#icon-refresh"></use></svg>
+        <span>Re-analyze</span>
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+{# TShark Offline / Availability Banner #}
+{% if not tshark_available %}
+  <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5);">
+    <div style="display: flex; align-items: flex-start; gap: var(--space-3);">
+      <svg width="22" height="22" style="color: #d97706; flex-shrink: 0; margin-top: 2px;"><use href="#icon-alert-triangle"></use></svg>
+      <div>
+        <h4 style="font-size: 14px; font-weight: 700; color: #92400e; margin: 0 0 var(--space-1) 0;">
+          TShark CLI Utility Not Found (Operating in In-Memory Fallback Mode)
+        </h4>
+        <p style="font-size: 12px; color: #b45309; margin: 0 0 var(--space-2) 0;">
+          Wireshark/TShark is not installed or not present on the system PATH. ForensiX is utilizing its pure-Python native in-memory PCAP dissector to extract IPv4, TCP, UDP, DNS queries, and HTTP traffic.
+        </p>
+        <span style="font-size: 11px; color: #78350f;">
+          For deep protocol inspection and pcapng dissection: Install Wireshark and configure <code>TSHARK_PATH</code> in environment variables.
+        </span>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div style="background-color: var(--status-verified-bg); border: 1px solid var(--status-verified-border); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-5); display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: var(--space-2);">
+      <svg width="16" height="16" style="color: #059669;"><use href="#icon-check-circle"></use></svg>
+      <span style="font-size: 12px; font-weight: 600; color: var(--status-verified-text);">
+        Dissection Engine: TShark {{ tshark_info.version if tshark_info else 'CLI' }} (Sandboxed via S6 Containment)
+      </span>
+    </div>
+    {% if capinfos_available %}
+      <span class="chip chip-verified" style="font-size: 11px;">Capinfos Active</span>
+    {% endif %}
+  </div>
+{% endif %}
+
+{# Dissection Controls (Lead/Analyst) #}
+{% if can_analyze %}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header">
+      <span class="card-title">Dissection Parameters &amp; Provenance</span>
+      <span class="stat-meta">Plaintext SHA-256: <code>{{ evidence.sha256[:16] }}...</code></span>
+    </div>
+    <div class="card-body">
+      <form action="/cases/{{ case.id }}/evidence/{{ evidence.id }}/network/analyze" method="POST" style="display: flex; gap: var(--space-4); align-items: flex-end; flex-wrap: wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div style="flex: 1; min-width: 200px;">
+          <label for="packet_cap" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">
+            Packet Cap (Max: 1,000,000)
+          </label>
+          <input type="number" id="packet_cap" name="packet_cap" value="{{ analysis.packet_count if analysis and analysis.packet_count else '200000' }}" min="100" max="1000000" step="5000"
+            style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+        </div>
+
+        <div>
+          <button type="submit" class="btn btn-primary" style="font-size: 13px;">
+            Run Dissection &amp; Detect Threats
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+{# Metric Cards Strip #}
+<div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: var(--space-6);">
+  <div class="stat-card">
+    <span class="stat-label">Packets Processed</span>
+    <span class="stat-value">{{ analysis.packet_count if analysis else events|length }}</span>
+    <span class="stat-meta">Capture size: {{ (evidence.size / 1024)|round(1) }} KB</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Timeline Flows</span>
+    <span class="stat-value">{{ events|length }}</span>
+    <span class="stat-meta">events table (pcap)</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Extracted IOCs</span>
+    <span class="stat-value">{{ iocs|length }}</span>
+    <span class="stat-meta">IPs, Domains, URLs</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Threat Findings</span>
+    <span class="stat-value" style="color: {% if findings %}#e11d48{% else %}#059669{% endif %};">
+      {{ findings|length }}
+    </span>
+    <span class="stat-meta">Automated heuristic rules</span>
+  </div>
+</div>
+
+{# Suspicious Threat Findings #}
+{% if findings %}
+  <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-6);">
+    <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3);">
+      <svg width="20" height="20" style="color: #e11d48;"><use href="#icon-alert-triangle"></use></svg>
+      <h3 style="font-size: 16px; font-weight: 700; color: #9f1239; margin: 0;">
+        Automated Threat Findings ({{ findings|length }})
+      </h3>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+      {% for f in findings %}
+        <div style="background: white; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: var(--space-3); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3);">
+          <div>
+            <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: 2px;">
+              <strong style="color: #991b1b; font-size: 14px;">{{ f.rule }}</strong>
+              <span class="chip {{ 'chip-compromised' if f.severity in ['High', 'Critical'] else 'chip-suspicious' }}" style="font-size: 11px;">
+                {{ f.severity }}
+              </span>
+              {% if f.src_ip %}
+                <code style="font-size: 12px; background: #fee2e2; padding: 1px 4px; border-radius: 3px;">Host: {{ f.src_ip }}</code>
+              {% endif %}
+              <span style="font-size: 11px; color: var(--text-subtle);">Status: {{ f.status }}</span>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">{{ f.evidence_lines }}</p>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{# Analysis Breakdowns Grid #}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-6);">
+  {# Top Talkers / IP Destinations #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Top Communicating IP Addresses</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if analysis and (analysis.top_src_ips or analysis.top_dst_ips) %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr;">
+          <div style="border-right: 1px solid var(--border-subtle); padding: var(--space-3);">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-2);">Top Sources</div>
+            {% for ip, count in analysis.top_src_ips %}
+              <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px dotted var(--border-subtle);">
+                <code>{{ ip }}</code>
+                <span class="text-muted">{{ count }} pkts</span>
+              </div>
+            {% endfor %}
+          </div>
+          <div style="padding: var(--space-3);">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-2);">Top Destinations</div>
+            {% for ip, count in analysis.top_dst_ips %}
+              <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px dotted var(--border-subtle);">
+                <code>{{ ip }}</code>
+                <span class="text-muted">{{ count }} pkts</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div style="padding: var(--space-4); text-align: center; color: var(--text-muted); font-size: 12px;">
+          No IP statistics available. Click "Re-analyze" to dissect packets.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Top DNS Queries & Destination Ports #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Top DNS Queries &amp; Target Ports</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if analysis and (analysis.top_dns_queries or analysis.top_dst_ports) %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr;">
+          <div style="border-right: 1px solid var(--border-subtle); padding: var(--space-3);">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-2);">Top DNS Queries</div>
+            {% for domain, count in analysis.top_dns_queries %}
+              <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px dotted var(--border-subtle);">
+                <span style="font-family: var(--font-mono); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ domain }}">{{ domain }}</span>
+                <span class="text-muted">{{ count }} qrys</span>
+              </div>
+            {% else %}
+              <span class="text-muted" style="font-size: 12px;">No DNS queries detected</span>
+            {% endfor %}
+          </div>
+          <div style="padding: var(--space-3);">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-2);">Top Ports</div>
+            {% for port, count in analysis.top_dst_ports %}
+              <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px dotted var(--border-subtle);">
+                <code>Port {{ port }}</code>
+                <span class="text-muted">{{ count }} pkts</span>
+              </div>
+            {% else %}
+              <span class="text-muted" style="font-size: 12px;">No port activity</span>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div style="padding: var(--space-4); text-align: center; color: var(--text-muted); font-size: 12px;">
+          No protocol breakdown available. Click "Re-analyze" to dissect packets.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Extracted Indicators of Compromise (IOCs) #}
+<div class="card" style="margin-bottom: var(--space-6);">
+  <div class="card-header">
+    <span class="card-title">Extracted Network Indicators of Compromise (IOCs)</span>
+    <span class="stat-meta">{{ iocs|length }} IOCs recorded</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if iocs %}
+      <div class="table-container" style="border: none; border-radius: 0;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Indicator Value</th>
+              <th>Verdict</th>
+              <th>Source Subsystem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ioc in iocs %}
+              <tr>
+                <td><span class="chip chip-neutral">{{ ioc.type|upper }}</span></td>
+                <td><code>{{ ioc.value }}</code></td>
+                <td>
+                  <span class="chip {% if ioc.verdict == 'Suspicious' or ioc.verdict == 'Known malicious' %}chip-compromised{% else %}chip-neutral{% endif %}">
+                    {{ ioc.verdict }}
+                  </span>
+                </td>
+                <td class="text-muted" style="font-size: 12px;">{{ ioc.source }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% call ui.empty_state("No IOCs Extracted", "Run packet dissection to extract network artifacts.", "icon-search") %}{% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{# Dissected Flow Events Table (Timeline sync) #}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Reconstructed Network Flows (Timeline Events)</span>
+    <span class="stat-meta">Showing first 50 of {{ events|length }} records</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if events %}
+      <div class="table-container" style="border: none; border-radius: 0;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Timestamp (UTC)</th>
+              <th>Source IP</th>
+              <th>Destination IP</th>
+              <th>Flow Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ev in events[:50] %}
+              <tr>
+                <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-subtle);">{{ ev.timestamp_utc }}</td>
+                <td><code>{{ ev.src_ip or '-' }}</code></td>
+                <td><code>{{ ev.dst_ip or '-' }}</code></td>
+                <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-main);">{{ ev.raw_line }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% call ui.empty_state("No Network Flows", "No packet events have been populated into the events table yet.", "icon-globe") %}{% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,12 @@
+/*
+ * vis-timeline STUB
+ * Replace with the vendored library from: https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.css
+ *
+ * This stub provides minimal CSS so the page doesn't crash in offline environments.
+ */
+
+.vis-timeline { font-family: sans-serif; border: 1px solid #e2e8f0; border-radius: 4px; }
+.vis-item { border-radius: 3px; padding: 2px 6px; font-size: 12px; overflow: hidden; }
+.vis-item.vis-selected { border-width: 2px; }
+.vis-label { overflow: hidden; padding: 4px 8px; }
+.vis-time-axis .vis-text { color: #64748b; font-size: 11px; }

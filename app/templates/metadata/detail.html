@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Metadata & EXIF - {{ evidence.display_name }} - ForensiX{% endblock %}
+
+{% block content %}
+{% include "cases/case_header.html" %}
+
+{# Navigation & Action Bar #}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+  <div style="display: flex; align-items: center; gap: var(--space-3);">
+    <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}" class="btn btn-secondary" style="font-size: 13px;">
+      &larr; Back to Evidence Details
+    </a>
+    <h2 style="font-size: 18px; font-weight: 700; color: var(--text-main); margin: 0;">
+      Metadata &amp; EXIF Analysis: <code style="font-size: 16px;">{{ evidence.display_name }}</code>
+    </h2>
+  </div>
+
+  <form action="/cases/{{ case.id }}/evidence/{{ evidence.id }}/metadata/extract" method="POST" style="margin: 0;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-primary" style="font-size: 13px;">
+      <svg width="14" height="14"><use href="#icon-refresh"></use></svg>
+      <span>Re-extract Metadata</span>
+    </button>
+  </form>
+</div>
+
+{# Suspicious Findings Strip #}
+{% if findings %}
+  <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-6);">
+    <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3);">
+      <svg width="20" height="20" style="color: #e11d48;"><use href="#icon-alert-triangle"></use></svg>
+      <h3 style="font-size: 16px; font-weight: 700; color: #9f1239; margin: 0;">
+        Structural Integrity &amp; Anomaly Alerts ({{ findings|length }})
+      </h3>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+      {% for f in findings %}
+        <div style="background: white; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: var(--space-3); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3);">
+          <div>
+            <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: 2px;">
+              <strong style="color: #991b1b; font-size: 14px;">{{ f.rule }}</strong>
+              <span class="chip {{ 'chip-compromised' if f.severity in ['High', 'Critical'] else 'chip-suspicious' }}" style="font-size: 11px;">
+                {{ f.severity }}
+              </span>
+              <span style="font-size: 11px; color: var(--text-subtle);">Status: {{ f.status }}</span>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">{{ f.evidence_lines }}</p>
+          </div>
+          {% if f.details_json and f.details_json != '{}' %}
+            <code style="font-size: 11px; color: var(--text-subtle); max-width: 250px; word-break: break-all;">
+              {{ f.details_json }}
+            </code>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{# GPS Location Information (Link-Free Offline Display) #}
+{% if analysis and analysis.gps %}
+  <div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-5); margin-bottom: var(--space-6); box-shadow: var(--shadow-sm);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+      <div style="width: 36px; height: 36px; border-radius: var(--radius-full); background-color: #dbeafe; display: flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" style="color: #2563eb;"><use href="#icon-globe"></use></svg>
+      </div>
+      <div>
+        <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">
+          Embedded Geolocation Coordinates (EXIF GPS)
+        </h3>
+        <span style="font-size: 12px; color: var(--text-muted);">Strictly offline coordinate parsing (zero outbound tile queries)</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); background-color: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-4);">
+      <div>
+        <span style="font-size: 11px; text-transform: uppercase; color: var(--text-subtle); font-weight: 600;">Formatted Position</span>
+        <div style="font-size: 16px; font-weight: 700; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">
+          {{ analysis.gps.text }}
+        </div>
+      </div>
+      <div>
+        <span style="font-size: 11px; text-transform: uppercase; color: var(--text-subtle); font-weight: 600;">Decimal Latitude</span>
+        <div style="font-size: 15px; font-family: var(--font-mono); color: var(--text-main); margin-top: 2px;">
+          {{ analysis.gps.latitude }}
+        </div>
+      </div>
+      <div>
+        <span style="font-size: 11px; text-transform: uppercase; color: var(--text-subtle); font-weight: 600;">Decimal Longitude</span>
+        <div style="font-size: 15px; font-family: var(--font-mono); color: var(--text-main); margin-top: 2px;">
+          {{ analysis.gps.longitude }}
+        </div>
+      </div>
+      {% if analysis.gps.altitude is not none %}
+        <div>
+          <span style="font-size: 11px; text-transform: uppercase; color: var(--text-subtle); font-weight: 600;">Altitude</span>
+          <div style="font-size: 15px; font-family: var(--font-mono); color: var(--text-main); margin-top: 2px;">
+            {{ analysis.gps.altitude }} meters
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{# Normalized Timeline Events Table #}
+<div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; margin-bottom: var(--space-6); box-shadow: var(--shadow-sm);">
+  <div style="padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+    <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0;">
+      Normalized Timeline Events (Synchronized to Investigation Timeline)
+    </h3>
+    <span style="font-size: 12px; color: var(--text-muted);">{{ events|length }} timeline events</span>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="table" style="margin-bottom: 0;">
+      <thead>
+        <tr>
+          <th style="width: 220px;">Normalized UTC Timestamp</th>
+          <th style="width: 140px;">Source</th>
+          <th style="width: 160px;">Action</th>
+          <th>Timeline Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not events %}
+          <tr>
+            <td colspan="4" style="text-align: center; padding: var(--space-5); color: var(--text-muted);">
+              No timestamps were extracted from this file's metadata.
+            </td>
+          </tr>
+        {% else %}
+          {% for ev in events %}
+            <tr>
+              <td style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text-main);">
+                {{ ev.timestamp_utc }}
+              </td>
+              <td style="font-size: 12px;">
+                <span class="chip chip-unknown" style="font-size: 11px;">{{ ev.source_type|upper }}</span>
+              </td>
+              <td style="font-size: 12px; font-weight: 600;">
+                {{ ev.action }}
+              </td>
+              <td style="font-size: 13px; color: var(--text-main);">
+                {{ ev.raw_line }}
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Extracted Technical Attributes Grid #}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--space-5); margin-bottom: var(--space-6);">
+  {# File Properties & Entropy #}
+  <div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-5); box-shadow: var(--shadow-sm);">
+    <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: var(--space-4);">
+      File Integrity &amp; Entropy Metrics
+    </h3>
+    <div style="display: flex; flex-direction: column; gap: var(--space-3); font-size: 13px;">
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: var(--text-subtle);">Display Filename:</span>
+        <code style="color: var(--text-main);">{{ evidence.display_name }}</code>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: var(--text-subtle);">Detected MIME:</span>
+        <code style="color: var(--text-main);">{{ evidence.mime_real }}</code>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: var(--text-subtle);">Physical Size:</span>
+        <span>{{ (evidence.size / 1024)|round(2) }} KB ({{ evidence.size }} bytes)</span>
+      </div>
+      {% if analysis and analysis.entropy is defined %}
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-subtle);">Shannon Entropy:</span>
+          <div>
+            <strong style="color: {{ '#dc2626' if analysis.entropy > 7.5 else 'var(--text-main)' }}; font-family: var(--font-mono);">
+              {{ analysis.entropy }} / 8.0000
+            </strong>
+            <span class="chip {{ 'chip-suspicious' if analysis.entropy > 7.5 else 'chip-verified' }}" style="font-size: 10px; margin-left: 6px;">
+              {{ 'HIGH' if analysis.entropy > 7.5 else 'NORMAL' }}
+            </span>
+          </div>
+        </div>
+      {% endif %}
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: var(--text-subtle);">SHA-256 Fingerprint:</span>
+        {{ ui.hash_display(evidence.sha256, truncate=True) }}
+      </div>
+    </div>
+  </div>
+
+  {# Native Extracted Properties #}
+  {% if analysis and analysis.native %}
+    <div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-5); box-shadow: var(--shadow-sm);">
+      <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: var(--space-4);">
+        Parsed File Properties
+      </h3>
+      <div style="display: flex; flex-direction: column; gap: var(--space-3); font-size: 13px;">
+        {% for k, v in analysis.native.items() %}
+          {% if k not in ['all_exif', 'sections', 'imported_dlls', 'error'] and v is not none %}
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-subtle); text-transform: capitalize;">{{ k|replace('_', ' ') }}:</span>
+              <strong style="color: var(--text-main); max-width: 200px; text-align: right; word-break: break-all;">{{ v }}</strong>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

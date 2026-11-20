@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}{{ case.case_no }} Overview | ForensiX Platform{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {# Reusable Case Header & Tabs #}
+  {% include "cases/case_header.html" %}
+
+  {# Overview Stat Tiles #}
+  <div class="stat-grid">
+    {{ ui.stat_tile("Evidence Files", summary.evidence_count, "icon-evidence", "AES-256 vault files") }}
+    {{ ui.stat_tile("Last Integrity Check", summary.last_integrity_check[:16] if summary.last_integrity_check != 'Never' else 'Never', "icon-shield", "Cryptographic verification") }}
+    {{ ui.stat_tile("Open Findings", summary.open_findings, "icon-alert-triangle", "Flagged rules") }}
+    {{ ui.stat_tile("Assigned Team", members|length, "icon-cases", "Investigators") }}
+  </div>
+
+  {# What To Do Next Card (B2) #}
+  <div class="card" style="background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); border: 1px solid #bbf7d0; box-shadow: var(--shadow-sm); margin-bottom: var(--space-6);">
+    <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: var(--space-4);">
+        <div style="width: 44px; height: 44px; border-radius: var(--radius-md); background: #dcfce7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #86efac;">
+          <svg width="22" height="22" style="color: #166534;"><use href="#icon-shield-check"></use></svg>
+        </div>
+        <div>
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #166534;">Recommended Next Step</span>
+          {% if summary.evidence_count == 0 %}
+            <h3 style="font-size: 16px; font-weight: 700; color: #14532d; margin: 2px 0;">No evidence yet &mdash; Upload your first forensic artifact</h3>
+            <p style="font-size: 13px; color: #166534; margin: 0;">Upload disk images, PCAP traces, server logs, or suspect files to begin evidence chain of custody.</p>
+          {% elif summary.last_integrity_check == 'Never' %}
+            <h3 style="font-size: 16px; font-weight: 700; color: #14532d; margin: 2px 0;">{{ summary.evidence_count }} evidence item(s) unverified &mdash; Run cryptographic integrity check</h3>
+            <p style="font-size: 13px; color: #166534; margin: 0;">Execute SHA-256 vault re-verification and hash chain validation to confirm evidentiary integrity.</p>
+          {% elif summary.open_findings == 0 %}
+            <h3 style="font-size: 16px; font-weight: 700; color: #14532d; margin: 2px 0;">Integrity verified &mdash; Run automated forensic analysis</h3>
+            <p style="font-size: 13px; color: #166534; margin: 0;">Dissect EXIF metadata, parse authentication brute-force logs, and inspect network PCAP packets.</p>
+          {% else %}
+            <h3 style="font-size: 16px; font-weight: 700; color: #14532d; margin: 2px 0;">Analysis complete &mdash; Generate Section 63 BSA compliance report</h3>
+            <p style="font-size: 13px; color: #166534; margin: 0;">Compile findings, event timeline, IOCs, and hash chain into a signed legal court certificate.</p>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        {% if summary.evidence_count == 0 %}
+          <a href="/cases/{{ case.id }}/evidence/upload" class="btn btn-primary" style="font-size: 13px;">
+            <svg width="14" height="14"><use href="#icon-plus"></use></svg>
+            <span>Upload Evidence &rarr;</span>
+          </a>
+        {% elif summary.last_integrity_check == 'Never' %}
+          <a href="/cases/{{ case.id }}/custody" class="btn btn-primary" style="font-size: 13px;">
+            <svg width="14" height="14"><use href="#icon-shield"></use></svg>
+            <span>Run Integrity Check &rarr;</span>
+          </a>
+        {% elif summary.open_findings == 0 %}
+          <a href="/cases/{{ case.id }}/analysis" class="btn btn-primary" style="font-size: 13px;">
+            <svg width="14" height="14"><use href="#icon-system"></use></svg>
+            <span>Run Analysis &rarr;</span>
+          </a>
+        {% else %}
+          <a href="/cases/{{ case.id }}/reports" class="btn btn-primary" style="font-size: 13px;">
+            <svg width="14" height="14"><use href="#icon-reports"></use></svg>
+            <span>Generate Report &rarr;</span>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-6);">
+    {# Left Column #}
+    <div>
+      {# Incident Summary #}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Case Brief &amp; Scope</span>
+          <span class="stat-meta">ID: {{ case.id }}</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size: 14px; line-height: 1.6; color: var(--text-main); white-space: pre-wrap;">{{ case.description or "No formal description provided for this investigation." }}</p>
+        </div>
+      </div>
+
+      {# Recent Case Audits #}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Case Activity</span>
+          <a href="/cases/{{ case.id }}/custody" style="font-size: 12px; font-weight: 500;">Full Custody Log &rarr;</a>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          {% if summary.recent_activity %}
+            <div class="table-container" style="border: none; border-radius: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>User</th>
+                    <th>Time (UTC)</th>
+                    <th>Hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for act in summary.recent_activity %}
+                    <tr>
+                      <td><strong>{{ act.action }}</strong></td>
+                      <td class="text-muted">{{ act.user_name or "System" }}</td>
+                      <td style="font-size: 12px; color: var(--text-subtle);">{{ act.timestamp_utc }}</td>
+                      <td>{{ ui.hash_display(act.entry_hash) }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            {% call ui.empty_state("No Activity Logged", "No actions have been recorded in this case yet.", "icon-shield") %}{% endcall %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Right Column: Lifecycle & Team #}
+    <div>
+      {# Status Management #}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Investigation Lifecycle</span>
+          {{ ui.status_chip(case.status) }}
+        </div>
+        <div class="card-body">
+          {% if is_lead %}
+            <form action="/cases/{{ case.id }}/status" method="POST">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <label for="status" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-2);">Transition Status</label>
+              <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
+                <select id="status" name="status" style="flex: 1; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+                  <option value="Open" {{ 'selected' if case.status == 'Open' else '' }}>Open</option>
+                  <option value="In Progress" {{ 'selected' if case.status == 'In Progress' else '' }}>In Progress</option>
+                  <option value="Under Review" {{ 'selected' if case.status == 'Under Review' else '' }}>Under Review</option>
+                  <option value="Closed" {{ 'selected' if case.status == 'Closed' else '' }} {{ 'disabled' if case.legal_hold else '' }}>Closed</option>
+                </select>
+                <button type="submit" class="btn btn-secondary" style="font-size: 12px;">Update</button>
+              </div>
+
+              {% if case.legal_hold %}
+                <p style="font-size: 11px; color: #be123c;">Status cannot be set to Closed while Legal Hold is active.</p>
+              {% endif %}
+            </form>
+          {% else %}
+            <p style="font-size: 13px; color: var(--text-muted);">
+              Current state is <strong>{{ case.status }}</strong>. Only the case lead may advance investigation status.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Assigned Members #}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Assigned Investigators</span>
+          <span class="stat-meta">{{ members|length }} member(s)</span>
+        </div>
+        <div class="card-body">
+          <ul style="list-style: none; margin-bottom: var(--space-4);">
+            {% for m in members %}
+              <li style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle);">
+                <div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">
+                    {{ m.name }}
+                    {% if m.id == case.lead_user_id %}
+                      <span class="chip chip-verified" style="font-size: 10px; padding: 1px 6px;">Lead</span>
+                    {% endif %}
+                  </div>
+                  <div style="font-size: 11px; color: var(--text-subtle);">{{ m.role }} &bull; <code>{{ m.username }}</code></div>
+                </div>
+
+                {% if is_lead and m.id != case.lead_user_id %}
+                  <form action="/cases/{{ case.id }}/members/remove" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="user_id" value="{{ m.id }}">
+                    <button type="submit" class="btn btn-danger" style="padding: 2px 6px; font-size: 11px;">Remove</button>
+                  </form>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+
+          {# Add Member Dropdown (Lead Only) #}
+          {% if is_lead and available_users %}
+            <form action="/cases/{{ case.id }}/members/add" method="POST" style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-3);">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label for="add_user" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Assign Investigator</label>
+              <div style="display: flex; gap: var(--space-2);">
+                <select id="add_user" name="user_id" required style="flex: 1; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 12px;">
+                  {% for u in available_users %}
+                    <option value="{{ u.id }}">{{ u.name }} ({{ u.role }} - {{ u.username }})</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary" style="font-size: 12px; padding: var(--space-2) var(--space-3);">+ Add</button>
+              </div>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Bottom Navigation / Next Step (B1) #}
+  <div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+    <span style="font-size: 13px; color: var(--text-muted);">Step 1 of 5 in forensic workflow: Intake and catalogue digital evidence.</span>
+    <a href="/cases/{{ case.id }}/evidence" class="btn btn-primary" style="font-size: 13px;">
+      <span>Next: Evidence Vault &rarr;</span>
+    </a>
+  </div>
+{% endblock %}

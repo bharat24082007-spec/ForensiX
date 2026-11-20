@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In | ForensiX Investigation Platform</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-app);">
+  <!-- Inline SVG sprite for icon references -->
+  {% include "partials/icons.svg" %}
+  <div style="width: 100%; max-width: 420px; padding: var(--space-4);">
+    <div style="text-align: center; margin-bottom: var(--space-6);">
+      <div style="display: inline-flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+        <svg width="32" height="32" class="icon" style="color: var(--primary-600);"><use href="#icon-shield"></use></svg>
+        <h1 style="font-size: 26px; font-weight: 700; color: var(--text-main); letter-spacing: -0.02em;">ForensiX</h1>
+      </div>
+      <p style="color: var(--text-muted); font-size: 14px; font-weight: 500;">Evidence you can verify</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+          <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+            {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+            {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+            {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card" style="box-shadow: var(--shadow-md);">
+      <div class="card-header">
+        <span class="card-title">Authorized Personnel Access</span>
+        <span class="chip chip-verified" style="font-size: 10px;">127.0.0.1</span>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="/login">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div style="margin-bottom: var(--space-4);">
+            <label for="username" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Username</label>
+            <input type="text" id="username" name="username" required autocomplete="username" autofocus
+              placeholder="e.g. nikitha24"
+              style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 14px;">
+            <span style="font-size: 11px; color: var(--text-subtle); display: block; margin-top: 4px;">Enter your assigned username (not email address).</span>
+          </div>
+
+          <div style="margin-bottom: var(--space-5);">
+            <label for="password" style="display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password"
+              placeholder="Enter your password"
+              style="width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 14px;">
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: var(--space-3); font-weight: 600;">
+            Sign In &rarr;
+          </button>
+        </form>
+      </div>
+      <div class="card-footer" style="text-align: center; color: var(--text-subtle); font-size: 12px;">
+        Strict Audit Logging Enabled | Argon2id + TOTP
+      </div>
+    </div>
+  </div>
+</body>
+</html>

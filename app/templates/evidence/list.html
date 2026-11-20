@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Evidence Vault | {{ case.case_no }}{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Evidence", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {# Standardized Case Header & Tabs #}
+  {% include "cases/case_header.html" %}
+
+  {# Action & Filter Toolbar #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body" style="padding: var(--space-4);">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-4);">
+        <form method="GET" action="/cases/{{ case.id }}/evidence" style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; flex: 1;">
+          <input type="text" name="q" value="{{ query_str }}" placeholder="Search by filename, SHA-256, or tag..."
+            style="min-width: 260px; flex: 1; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+
+          <select name="status" style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 13px;">
+            <option value="All" {{ 'selected' if status_filter == 'All' else '' }}>All Statuses</option>
+            <option value="VERIFIED" {{ 'selected' if status_filter == 'VERIFIED' else '' }}>VERIFIED</option>
+            <option value="SUSPICIOUS" {{ 'selected' if status_filter == 'SUSPICIOUS' else '' }}>SUSPICIOUS</option>
+            <option value="COMPROMISED" {{ 'selected' if status_filter == 'COMPROMISED' else '' }}>COMPROMISED</option>
+          </select>
+
+          <button type="submit" class="btn btn-secondary" style="font-size: 12px; padding: var(--space-2) var(--space-3);">Filter</button>
+        </form>
+
+        {% if can_upload %}
+          <a href="/cases/{{ case.id }}/evidence/upload" class="btn btn-primary">
+            <svg width="14" height="14"><use href="#icon-evidence"></use></svg>
+            <span>+ Upload Evidence</span>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Evidence Data Table #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Vault Evidence Items</span>
+      <span class="stat-meta">{{ evidence_items|length }} item(s) stored</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if evidence_items %}
+        <div class="table-container" style="border: none; border-radius: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Integrity</th>
+                <th>Real MIME Type</th>
+                <th>Size</th>
+                <th>Plaintext SHA-256</th>
+                <th>Tags</th>
+                <th>Uploaded By</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in evidence_items %}
+                <tr style="{{ 'opacity: 0.6; text-decoration: line-through;' if e.withdrawn else '' }}">
+                  <td>
+                    <a href="/cases/{{ case.id }}/evidence/{{ e.id }}" class="evidence-id-link"><strong>{{ e.display_name }}</strong></a>
+                    {% if e.withdrawn %}
+                      <span class="chip chip-unknown" style="font-size: 10px; padding: 1px 6px; text-decoration: none;">Withdrawn</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ ui.status_chip(e.integrity_status) }}</td>
+                  <td><code>{{ e.mime_real }}</code></td>
+                  <td style="font-size: 12px;">{{ (e.size / 1024)|round(1) }} KB</td>
+                  <td>{{ ui.hash_display(e.sha256) }}</td>
+                  <td>
+                    {% if e.tags %}
+                      <span style="font-size: 12px; color: var(--text-muted);">{{ e.tags }}</span>
+                    {% else %}
+                      <span class="text-subtle">-</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-muted">{{ e.uploader_name }}</td>
+                  <td style="font-size: 12px; color: var(--text-subtle);">{{ e.uploaded_at[:16] }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        {% call ui.empty_state("No Evidence in Vault", "No evidence files have been uploaded to this investigation case yet.", "icon-evidence") %}
+          {% if can_upload %}
+            <a href="/cases/{{ case.id }}/evidence/upload" class="btn btn-primary" style="font-size: 12px;">Upload First File</a>
+          {% endif %}
+        {% endcall %}
+      {% endif %}
+    </div>
+  </div>
+
+  {# Bottom Navigation / Next Step (B1) #}
+  <div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+    <span style="font-size: 13px; color: var(--text-muted);">Step 2 of 5 in forensic workflow: Re-verify vault files and validate cryptographic custody hash chain.</span>
+    <a href="/cases/{{ case.id }}/custody" class="btn btn-primary" style="font-size: 13px;">
+      <svg width="14" height="14"><use href="#icon-shield-check"></use></svg>
+      <span>Next: Verify Integrity &amp; Custody &rarr;</span>
+    </a>
+  </div>
+{% endblock %}

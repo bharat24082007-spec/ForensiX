@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ForensiX Platform{% endblock %}</title>
+
+  <!-- Vendored Local CSS (Zero External CDN Links) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- Inline SVG Sprite for Offline Capability -->
+  {% include "partials/icons.svg" %}
+
+  <div class="app-layout">
+    <!-- Fixed Sidebar -->
+    {% include "partials/sidebar.html" %}
+
+    <div class="app-main-wrapper">
+      <!-- Top Navigation & Breadcrumbs -->
+      <header class="app-topbar">
+        <div class="topbar-left">
+          {% block breadcrumb %}
+            <nav class="breadcrumb-trail" aria-label="Breadcrumb">
+              <span style="font-weight: 600; color: var(--text-main);">Dashboard</span>
+            </nav>
+          {% endblock %}
+        </div>
+
+        <div class="topbar-right">
+          <!-- Light / Dark Theme Toggle Button -->
+          <button id="theme-toggle-btn" class="theme-toggle-btn" title="Toggle Light / Dark Theme" aria-label="Toggle theme">
+            <svg width="16" height="16" class="icon"><use href="#icon-moon"></use></svg>
+          </button>
+
+          <!-- Logged-in User Menu with Role -->
+          {% if current_user.is_authenticated %}
+            <div class="user-menu" style="display: flex; align-items: center; gap: var(--space-3); padding-left: var(--space-3); border-left: 1px solid var(--border-subtle);">
+              <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; color: var(--primary-600); border: 1px solid var(--border-subtle);">
+                  <svg width="14" height="14" class="icon"><use href="#icon-user"></use></svg>
+                </div>
+                <div style="display: flex; flex-direction: column;">
+                  <span style="font-size: 13px; font-weight: 600; color: var(--text-main); line-height: 1.2;">{{ current_user.name or current_user.username }}</span>
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <span class="chip chip-verified" style="font-size: 10px; padding: 0 5px; height: 16px; line-height: 16px;">{{ current_user.role }}</span>
+                  </div>
+                </div>
+              </div>
+              <a href="/account" class="btn btn-secondary btn-sm" title="My Account" style="font-size: 12px; padding: 2px 8px;">Account</a>
+              <form action="/logout" method="POST" style="margin: 0; display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary btn-sm" title="Sign Out" aria-label="Sign Out" style="display: flex; align-items: center; justify-content: center; padding: 4px 8px; color: var(--text-muted);">
+                  <svg width="14" height="14" class="icon"><use href="#icon-logout"></use></svg>
+                </button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+      </header>
+
+      <!-- Primary Page Viewport -->
+      <main class="app-content">
+        <!-- Flash Alert Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages-container" style="margin-bottom: var(--space-4);">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}" style="padding: var(--space-3) var(--space-4); margin-bottom: var(--space-2); border-radius: var(--radius-md); font-size: 13px; display: flex; align-items: center; justify-content: space-between; background-color: {{ '#dcfce7' if category == 'success' else '#fee2e2' if category in ['error', 'danger'] else '#fef3c7' }}; color: {{ '#166534' if category == 'success' else '#991b1b' if category in ['error', 'danger'] else '#92400e' }}; border: 1px solid {{ '#bbf7d0' if category == 'success' else '#fecaca' if category in ['error', 'danger'] else '#fde68a' }};">
+                  <span>{{ message }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Vendored Local Vanilla JavaScript -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

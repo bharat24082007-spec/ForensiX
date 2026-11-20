@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Reports — {{ case.case_no if case else 'All Reports' }} | ForensiX{% endblock %}
+
+{% block breadcrumb %}
+  {% if case %}
+    {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Reports", None)]) }}
+  {% else %}
+    {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Reports", None)]) }}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {% if case %}
+    {% include "cases/case_header.html" %}
+  {% else %}
+    {% call ui.page_header("Forensic Reports", "Court-admissible PDF reports with cryptographic chain-of-custody and Ed25519 digital signatures") %}
+      <a href="/cases" class="btn btn-secondary">
+        <svg width="14" height="14"><use href="#icon-cases"></use></svg>
+        <span>View Cases</span>
+      </a>
+    {% endcall %}
+  {% endif %}
+
+  <div id="report-gen-alert" style="display: none; margin-bottom: var(--space-4);"></div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5);">
+    <div>
+      <h2 style="font-size: 18px; font-weight: 700; color: var(--text-main);">Forensic Reports</h2>
+      <p style="font-size: 13px; color: var(--text-muted);">Court-ready PDF reports with chain-of-custody trail and Ed25519 digital signatures.</p>
+    </div>
+    {% if case and current_user.role in ('Admin', 'Lead', 'Analyst') %}
+      <form id="form-generate-report" action="/cases/{{ case.id }}/reports/generate" method="POST" style="margin: 0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" id="btn-generate-report" class="btn btn-primary" style="display: flex; align-items: center; gap: var(--space-2);">
+          <svg width="14" height="14"><use href="#icon-reports"></use></svg>
+          <span id="btn-generate-text">+ Generate Legal Forensic Report</span>
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if reports %}
+    <div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm);">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>File Name</th>
+            <th>SHA-256</th>
+            <th>Chain Head Hash</th>
+            <th>Signed By</th>
+            <th>Signed</th>
+            <th>Generated</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reports %}
+            <tr>
+              <td style="font-family: var(--font-mono); font-weight: 600; color: var(--text-muted);">#{{ r.id }}</td>
+              <td style="font-size: 12px; font-family: var(--font-mono);">{{ r.file_name }}</td>
+              <td>{{ ui.hash_display(r.sha256) }}</td>
+              <td>{{ ui.hash_display(r.chain_head_hash) }}</td>
+              <td style="font-size: 13px;">
+                {% if r.signature %}
+                  <span class="chip chip-verified">{{ r.signer_name }}</span>
+                {% else %}
+                  <span class="chip chip-unknown">Unsigned</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 11px; color: var(--text-subtle);">
+                {% if r.signature %}✓{% else %}—{% endif %}
+              </td>
+              <td style="font-size: 12px; color: var(--text-subtle);">{{ r.created_at[:16] }}</td>
+              <td>
+                <div style="display: flex; gap: var(--space-2); align-items: center;">
+                  <a href="/reports/{{ r.id }}/download" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;" title="Download PDF Report">
+                    <svg width="12" height="12"><use href="#icon-download"></use></svg>
+                    <span>Download PDF</span>
+                  </a>
+                  {% if r.signature %}
+                    <a href="/reports/{{ r.id }}/sig" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" title="Download detached Ed25519 signature file">
+                      ↓ .sig
+                    </a>
+                  {% endif %}
+                  {% if is_lead and not r.signature %}
+                    <form action="/cases/{{ case.id }}/reports/{{ r.id }}/sign" method="POST"
+                          style="display: flex; gap: var(--space-1); margin: 0;"
+                          onsubmit="return document.getElementById('sign_pw_{{ r.id }}').value.length > 0 || (alert('Enter your password to sign') || false);">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="password" id="sign_pw_{{ r.id }}" name="password"
+                             placeholder="Password to sign"
+                             style="font-size: 11px; padding: 3px 6px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-main); width: 130px;">
+                      <button type="submit" class="btn btn-primary" style="font-size: 11px; padding: 3px 8px;">
+                        ✍ Sign
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="background-color: var(--bg-surface); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-8); text-align: center;">
+      <p style="color: var(--text-muted); font-size: 14px;">No reports generated for this case yet.</p>
+      {% if current_user.role in ('Admin', 'Lead', 'Analyst') %}
+        <p style="color: var(--text-subtle); font-size: 12px;">Click "+ Generate Legal Forensic Report" above to build a court-admissible Section 63 BSA PDF report.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if case %}
+    {# Bottom Navigation / Next Step (B1) #}
+    <div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+      <span style="font-size: 13px; color: var(--text-muted);">Investigation complete: Verify digital signatures or export self-contained court bundle.</span>
+      <div style="display: flex; gap: var(--space-3);">
+        <a href="/verify-report" class="btn btn-secondary" style="font-size: 13px;">
+          <svg width="14" height="14"><use href="#icon-shield-check"></use></svg>
+          <span>Verify Report</span>
+        </a>
+        <a href="/cases/{{ case.id }}/export" class="btn btn-primary" style="font-size: 13px;">
+          <svg width="14" height="14"><use href="#icon-save"></use></svg>
+          <span>Export Case Package &rarr;</span>
+        </a>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+  var form = document.getElementById('form-generate-report');
+  if (!form) return;
+  var btn = document.getElementById('btn-generate-report');
+  var btnText = document.getElementById('btn-generate-text');
+  var alertBox = document.getElementById('report-gen-alert');
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (!confirm('Generate a new court-admissible forensic PDF report with Ed25519 digital signature?')) {
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = 'Generating & Signing PDF...';
+    if (alertBox) {
+      alertBox.style.display = 'block';
+      alertBox.innerHTML = '<div style="padding:var(--space-3) var(--space-4);background:var(--bg-surface-subtle);border:1px solid var(--border-subtle);border-radius:var(--radius-md);font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:8px;"><span>Generating ReportLab PDF, computing SHA-256 hash, and signing with Ed25519...</span></div>';
+    }
+
+    var formData = new FormData(form);
+    fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(res) {
+      if (!res.ok) {
+        return res.json().catch(function() { return { error: 'Server returned HTTP ' + res.status }; }).then(function(err) {
+          throw new Error(err.error || 'Report generation failed');
+        });
+      }
+      var disp = res.headers.get('Content-Disposition') || '';
+      var filename = 'ForensiX_{{ case.case_no if case else "Report" }}_Report.pdf';
+      var match = disp.match(/filename=["']?([^"';]+)["']?/);
+      if (match && match[1]) {
+        filename = match[1];
+      }
+      return res.blob().then(function(blob) {
+        return { blob: blob, filename: filename };
+      });
+    })
+    .then(function(data) {
+      var url = window.URL.createObjectURL(data.blob);
+      var a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+      if (alertBox) {
+        alertBox.innerHTML = '<div style="padding:var(--space-3) var(--space-4);background:var(--status-verified-bg);border:1px solid var(--status-verified-border);border-radius:var(--radius-md);font-size:13px;color:var(--status-verified-text);">✓ Report generated, signed with Ed25519, and downloaded! Reloading list...</div>';
+      }
+      setTimeout(function() {
+        window.location.reload();
+      }, 1200);
+    })
+    .catch(function(err) {
+      if (btn) btn.disabled = false;
+      if (btnText) btnText.textContent = '+ Generate Legal Forensic Report';
+      if (alertBox) {
+        alertBox.innerHTML = '<div style="padding:var(--space-3) var(--space-4);background:var(--status-compromised-bg);border:1px solid var(--status-compromised-border);border-radius:var(--radius-md);font-size:13px;color:var(--status-compromised-text);">✗ ' + esc(err.message || String(err)) + '</div>';
+      }
+    });
+  });
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+})();
+</script>
+{% endblock %}

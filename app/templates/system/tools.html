@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Forensic Tool Adapters - ForensiX{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("System", "/system/health"), ("Tools Diagnostics", None)]) }}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: var(--space-5);">
+  <div>
+    <h1 style="font-size: 22px; font-weight: 700; color: var(--text-main); margin-bottom: var(--space-1);">
+      External Tool Adapters & Execution Engine
+    </h1>
+    <p style="color: var(--text-muted); font-size: 13px;">
+      Isolated subprocess execution framework enforcing timeout, memory caps, pre/post integrity hashing, and ephemeral copy wiping.
+    </p>
+  </div>
+</div>
+
+{# System Sub-Navigation Tabs #}
+<div class="tabs-container" style="margin-bottom: var(--space-6);">
+  <a href="/system/health" class="tab-item">Health Monitor &amp; Chain</a>
+  <a href="/system/backup" class="tab-item">Backups &amp; Key Recovery</a>
+  <a href="/system/tools" class="tab-item active">Tool Adapters</a>
+  {% if current_user.role == 'Admin' %}
+    <a href="/admin/users" class="tab-item">User Accounts</a>
+  {% endif %}
+</div>
+
+{# python-magic Fallback Warning (C6) #}
+{% if not magic_available %}
+  <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); display: flex; align-items: center; gap: var(--space-3);">
+    <svg width="22" height="22" style="color: #b45309; flex-shrink: 0;"><use href="#icon-alert-triangle"></use></svg>
+    <div>
+      <h4 style="color: #92400e; font-weight: 700; margin-bottom: 2px;">FILE IDENTIFICATION: BUILT-IN FALLBACK ACTIVE</h4>
+      <p style="color: #b45309; font-size: 13px; margin: 0;">
+        Native <code>libmagic</code> binary is unavailable on this host. ForensiX is operating safely using its built-in magic-number signature table (MZ, ELF, PDF, PNG, JPEG, ZIP, GIF) to detect header-extension mismatches and executable spoofing.
+      </p>
+    </div>
+  </div>
+{% endif %}
+
+{# Registered Tools Grid #}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-5); margin-bottom: var(--space-6);">
+  {% for tool in tools %}
+    <div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-5); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3);">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">{{ tool.name }}</h3>
+            <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-subtle);">ID: {{ tool.key }}</span>
+          </div>
+          {% if tool.available %}
+            {{ ui.status_chip("VERIFIED") }}
+          {% else %}
+            {{ ui.status_chip("NEEDS REVIEW") }}
+          {% endif %}
+        </div>
+
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: var(--space-4);">
+          {{ tool.description }}
+        </p>
+
+        <div style="background-color: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-3); font-size: 12px; margin-bottom: var(--space-3);">
+          <div style="margin-bottom: 4px;">
+            <span style="color: var(--text-subtle);">Configured Path:</span>
+            <code style="word-break: break-all;">{{ tool.configured_path }}</code>
+          </div>
+          <div style="margin-bottom: 4px;">
+            <span style="color: var(--text-subtle);">Resolved Binary:</span>
+            <code style="word-break: break-all;">{{ tool.resolved_path or 'Not found' }}</code>
+          </div>
+          <div>
+            <span style="color: var(--text-subtle);">Detected Version:</span>
+            <strong style="color: {{ '#16a34a' if tool.available else '#dc2626' }};">{{ tool.version or 'Unavailable' }}</strong>
+          </div>
+        </div>
+      </div>
+
+      {% if not tool.available %}
+        <div style="font-size: 12px; color: #b45309; background-color: #fef3c7; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin-top: var(--space-2);">
+          <strong>Feature Degraded:</strong> Binary missing on system PATH. Install executable or configure path in <code>.env</code> to enable.
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+{# Architecture Safeguards Banner #}
+<div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-5); margin-bottom: var(--space-6); box-shadow: var(--shadow-sm);">
+  <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2);">
+    <svg width="18" height="18" style="color: var(--brand-primary);"><use href="#icon-shield-check"></use></svg>
+    Subprocess Security &amp; Forensic Safeguards
+  </h3>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); font-size: 13px; color: var(--text-muted);">
+    <div>
+      <strong style="color: var(--text-main); display: block; margin-bottom: 2px;">No Shell Execution</strong>
+      Hard ban on <code>shell=True</code>. All commands are executed with structured parameter arrays directly through the OS kernel.
+    </div>
+    <div>
+      <strong style="color: var(--text-main); display: block; margin-bottom: 2px;">Dual Hash Verification</strong>
+      Decrypted working copies are hashed with SHA-256 before and after tool runs to prove original evidence files are never modified.
+    </div>
+    <div>
+      <strong style="color: var(--text-main); display: block; margin-bottom: 2px;">Ephemeral Working Wiping</strong>
+      Decrypted files in <code>data/work/&lt;job_id&gt;/</code> are overwritten with zeroes and unlinked in a mandatory <code>finally</code> block.
+    </div>
+    <div>
+      <strong style="color: var(--text-main); display: block; margin-bottom: 2px;">Timeout &amp; Output Caps</strong>
+      Execution timeouts (default 30s) and stdout output caps (10MB) prevent hung processes and memory exhaustion attacks.
+    </div>
+  </div>
+</div>
+
+{# Recent Tool Runs Audit Table #}
+<div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm);">
+  <div style="padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+    <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin: 0;">Recent Tool Executions</h3>
+    <span style="font-size: 12px; color: var(--text-muted);">{{ recent_runs|length }} logged executions</span>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="table" style="margin-bottom: 0;">
+      <thead>
+        <tr>
+          <th style="width: 60px;">Run #</th>
+          <th style="width: 140px;">Tool</th>
+          <th style="width: 140px;">Case</th>
+          <th style="width: 160px;">Evidence Item</th>
+          <th style="width: 120px;">Status</th>
+          <th style="width: 160px;">Started (UTC)</th>
+          <th>Arguments &bull; Diagnostic</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not recent_runs %}
+          <tr>
+            <td colspan="7" style="text-align: center; padding: var(--space-6); color: var(--text-muted);">
+              No tool execution records logged yet.
+            </td>
+          </tr>
+        {% else %}
+          {% for r in recent_runs %}
+            <tr>
+              <td style="font-family: var(--font-mono); font-weight: 600; color: var(--text-muted);">#{{ r.id }}</td>
+              <td style="font-size: 13px;">
+                <strong>{{ r.tool }}</strong>
+                <div style="font-size: 11px; color: var(--text-subtle);">{{ r.version }}</div>
+              </td>
+              <td style="font-size: 13px;">
+                {% if r.case_no %}
+                  <a href="/cases/{{ r.case_id }}" style="color: var(--brand-primary); font-weight: 600; text-decoration: none;">
+                    {{ r.case_no }}
+                  </a>
+                {% else %}
+                  <span style="color: var(--text-subtle);">Case #{{ r.case_id }}</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 13px;">
+                {% if r.evidence_name %}
+                  <a href="/cases/{{ r.case_id }}/evidence/{{ r.evidence_id }}" style="color: var(--text-main); text-decoration: none;">
+                    {{ r.evidence_name }}
+                  </a>
+                {% else %}
+                  <span style="color: var(--text-subtle);">&mdash;</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.status == 'done' %}
+                  <span class="chip chip-verified" style="font-size: 11px;">DONE</span>
+                {% elif r.status == 'running' %}
+                  <span class="chip chip-progress" style="font-size: 11px;">RUNNING</span>
+                {% elif r.status == 'queued' %}
+                  <span class="chip chip-unknown" style="font-size: 11px;">QUEUED</span>
+                {% else %}
+                  <span class="chip chip-compromised" style="font-size: 11px;">FAILED</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">{{ r.started_at }}</td>
+              <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); max-width: 320px; word-break: break-all;">
+                <code>{{ r.args_json }}</code>
+                {% if r.error %}
+                  <div style="color: #dc2626; font-size: 11px; margin-top: 2px;">Error: {{ r.error }}</div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

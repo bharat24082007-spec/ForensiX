@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}{{ evidence.display_name }} | Evidence Vault{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Evidence", "/cases/" ~ case.id ~ "/evidence"), (evidence.display_name, None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% include "cases/case_header.html" %}
+
+  {# Withdrawn Warning #}
+  {% if evidence.withdrawn %}
+    <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5);">
+      <h4 style="color: #9f1239; font-weight: 700; margin-bottom: 2px;">EVIDENCE WITHDRAWN FROM ACTIVE ANALYSIS</h4>
+      <p style="color: #be123c; font-size: 13px;">Reason: <em>{{ evidence.withdrawn_reason }}</em></p>
+    </div>
+  {% endif %}
+
+  {# Item Header Bar #}
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+      <h2 style="font-size: 18px; font-weight: 700; color: var(--text-main);">{{ evidence.display_name }}</h2>
+      {{ ui.status_chip(evidence.integrity_status) }}
+    </div>
+
+    <div style="display: flex; gap: var(--space-2);">
+      <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/logs" class="btn btn-secondary" style="font-size: 12px;">
+        Log Analyser
+      </a>
+      <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/network" class="btn btn-secondary" style="font-size: 12px;">
+        Network Analysis
+      </a>
+      <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/metadata" class="btn btn-secondary" style="font-size: 12px;">
+        Metadata &amp; EXIF
+      </a>
+      <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/view" target="_blank" class="btn btn-secondary" style="font-size: 12px;">
+        Preview Decrypted
+      </a>
+      <a href="/cases/{{ case.id }}/evidence/{{ evidence.id }}/download" class="btn btn-primary" style="font-size: 12px;">
+        Download Decrypted
+      </a>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-6);">
+    {# Left Column: Hashes, Metadata, Custody #}
+    <div>
+      {# Fingerprint & Vault Card #}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Cryptographic Fingerprint &amp; Vault Record</span>
+          <span class="chip chip-verified">SHA-256 Verified</span>
+        </div>
+        <div class="card-body">
+          <div style="margin-bottom: var(--space-4);">
+            <span class="detail-label">Plaintext SHA-256 Intake Fingerprint:</span>
+            <div style="margin-top: var(--space-1);">
+              {{ ui.hash_display(evidence.sha256, truncate=False) }}
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Vault Storage UUID</span>
+              <span class="detail-value"><code>{{ evidence.stored_name }}</code></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">File Size</span>
+              <span class="detail-value">{{ evidence.size }} bytes ({{ (evidence.size / 1024)|round(1) }} KB)</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Real MIME Type</span>
+              <span class="detail-value"><code>{{ evidence.mime_real }}</code></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Source Type</span>
+              <span class="detail-value">{{ evidence.source_type }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Intake Investigator</span>
+              <span class="detail-value">{{ evidence.uploader_name }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Intake Timestamp</span>
+              <span class="detail-value">{{ evidence.uploaded_at }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Last Integrity Verification</span>
+              <span class="detail-value">{{ evidence.last_verified_at or 'Never' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Encryption Algorithm</span>
+              <span class="detail-value">AES-256-GCM (1 MiB Chunked)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Custody Mini-Timeline #}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Evidence Custody Audit Trail</span>
+          <span class="stat-meta">{{ custody_trail|length }} audit events</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          {% if custody_trail %}
+            <div class="table-container" style="border: none; border-radius: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>User</th>
+                    <th>Time (UTC)</th>
+                    <th>Entry Hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for c in custody_trail %}
+                    <tr>
+                      <td><strong>{{ c.action }}</strong></td>
+                      <td class="text-muted">{{ c.user_name or "System" }}</td>
+                      <td style="font-size: 12px; color: var(--text-subtle);">{{ c.timestamp_utc }}</td>
+                      <td>{{ ui.hash_display(c.entry_hash) }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            {% call ui.empty_state("No Custody Events", "No specific actions logged for this item.", "icon-shield") %}{% endcall %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Right Column: Editable Metadata & Withdrawal #}
+    <div>
+      {# Metadata Editor #}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Tags &amp; Analyst Notes</span>
+        </div>
+        <div class="card-body">
+          {% if can_edit and not evidence.withdrawn %}
+            <form action="/cases/{{ case.id }}/evidence/{{ evidence.id }}/edit" method="POST">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <div style="margin-bottom: var(--space-3);">
+                <label for="tags" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Tags</label>
+                <input type="text" id="tags" name="tags" value="{{ evidence.tags or '' }}" placeholder="tag1, tag2..."
+                  style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 12px;">
+              </div>
+
+              <div style="margin-bottom: var(--space-4);">
+                <label for="notes" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Notes</label>
+                <textarea id="notes" name="notes" rows="4" placeholder="Analyst observations..."
+                  style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 12px; font-family: var(--font-sans);">{{ evidence.notes or '' }}</textarea>
+              </div>
+
+              <button type="submit" class="btn btn-secondary" style="width: 100%; font-size: 12px;">Save Changes</button>
+            </form>
+          {% else %}
+            <div style="margin-bottom: var(--space-3);">
+              <span class="detail-label">Tags:</span>
+              <div style="font-size: 13px; color: var(--text-main);">{{ evidence.tags or 'None' }}</div>
+            </div>
+            <div>
+              <span class="detail-label">Notes:</span>
+              <div style="font-size: 13px; color: var(--text-main); white-space: pre-wrap;">{{ evidence.notes or 'None' }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Formal Withdrawal (Lead Only) #}
+      {% if is_lead and not evidence.withdrawn %}
+        <div class="card" style="border-color: var(--status-compromised-border);">
+          <div class="card-header" style="background-color: var(--status-compromised-bg);">
+            <span class="card-title" style="color: var(--status-compromised-text);">Withdraw Evidence</span>
+            <span class="chip chip-compromised">Lead Action</span>
+          </div>
+          <div class="card-body">
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: var(--space-3);">
+              Evidence is never deleted. Withdrawal flags the item as excluded with an immutable custody log entry.
+            </p>
+
+            {% if case.legal_hold %}
+              <div style="background: #fff1f2; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: 11px; color: #9f1239; margin-bottom: var(--space-3);">
+                Withdrawal blocked: Legal Hold is active on this case.
+              </div>
+            {% else %}
+              <form action="/cases/{{ case.id }}/evidence/{{ evidence.id }}/withdraw" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div style="margin-bottom: var(--space-3);">
+                  <label for="reason" style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-subtle); margin-bottom: var(--space-1);">Mandatory Reason</label>
+                  <textarea id="reason" name="reason" required rows="3" placeholder="State reason for withdrawal..."
+                    style="width: 100%; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-main); font-size: 12px; font-family: var(--font-sans);"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-danger" style="width: 100%; font-size: 12px;">Withdraw Evidence</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

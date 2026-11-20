@@ -1,0 +1,136 @@
+{% import "macros/components.html" as ui %}
+
+{# Legal Hold Active Alert Banner #}
+{% if case.legal_hold %}
+  <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+      <svg width="24" height="24" style="color: #e11d48; flex-shrink: 0;"><use href="#icon-alert-octagon"></use></svg>
+      <div>
+        <h4 style="color: #9f1239; font-weight: 700; margin-bottom: 2px;">LEGAL HOLD ACTIVE</h4>
+        <p style="color: #be123c; font-size: 13px;">
+          This case is subject to an active legal hold. Evidence withdrawal, case closure, and record deletion are strictly locked.
+        </p>
+      </div>
+    </div>
+    {% if is_lead %}
+      <form action="/cases/{{ case.id }}/legal-hold" method="POST" style="margin: 0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-secondary" style="font-size: 12px; border-color: #fda4af; color: #9f1239;">
+          Release Legal Hold
+        </button>
+      </form>
+    {% endif %}
+  </div>
+{% endif %}
+
+{# Case Header #}
+<div style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-5); margin-bottom: var(--space-6); box-shadow: var(--shadow-sm);">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); margin-bottom: var(--space-4);">
+    <div>
+      <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1);">
+        <h1 style="font-size: 22px; font-weight: 700; color: var(--text-main);">{{ case.case_no }}: {{ case.title }}</h1>
+        {{ ui.status_chip(case.status) }}
+        {{ ui.status_chip(case.priority) }}
+      </div>
+      <p style="color: var(--text-muted); font-size: 13px;">
+        Lead Investigator: <strong>{{ case.lead_name }}</strong> (<code>{{ case.lead_username }}</code>) &bull; Created {{ case.created_at }}
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+      {% if is_lead and not case.legal_hold %}
+        <form action="/cases/{{ case.id }}/legal-hold" method="POST" style="margin: 0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-secondary" style="font-size: 12px;" title="Lock all evidence and prevent case closing">
+            <svg width="14" height="14" style="color: #e11d48;"><use href="#icon-alert-octagon"></use></svg>
+            <span>Apply Legal Hold</span>
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Guided Investigation Stepper (B1) #}
+  {% set step_tabs = {
+    'evidence': 1,
+    'custody': 2,
+    'analysis': 3,
+    'iocs': 3,
+    'timeline': 4,
+    'reports': 5,
+    'graph': 5
+  } %}
+  {% set current_step = step_tabs.get(active_tab, 1) %}
+  <div class="guided-stepper" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-subtle); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); border: 1px solid var(--border-subtle); overflow-x: auto; overflow-y: hidden;">
+    <a href="/cases/{{ case.id }}/evidence" style="text-decoration: none; display: flex; align-items: center; gap: 8px; color: {{ 'var(--primary-600)' if current_step == 1 else '#166534' if current_step > 1 else 'var(--text-subtle)' }}; font-weight: {{ '700' if current_step == 1 else '500' }}; font-size: 13px;">
+      <span style="width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{ 'var(--primary-600)' if current_step == 1 else '#dcfce7' if current_step > 1 else 'var(--bg-muted)' }}; color: {{ '#ffffff' if current_step == 1 else '#166534' if current_step > 1 else 'var(--text-muted)' }};">
+        {{ '✓' if current_step > 1 else '1' }}
+      </span>
+      <span>1 Evidence</span>
+    </a>
+
+    <span style="color: var(--border-strong);">&rsaquo;</span>
+
+    <a href="/cases/{{ case.id }}/custody" style="text-decoration: none; display: flex; align-items: center; gap: 8px; color: {{ 'var(--primary-600)' if current_step == 2 else '#166534' if current_step > 2 else 'var(--text-subtle)' }}; font-weight: {{ '700' if current_step == 2 else '500' }}; font-size: 13px;">
+      <span style="width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{ 'var(--primary-600)' if current_step == 2 else '#dcfce7' if current_step > 2 else 'var(--bg-muted)' }}; color: {{ '#ffffff' if current_step == 2 else '#166534' if current_step > 2 else 'var(--text-muted)' }};">
+        {{ '✓' if current_step > 2 else '2' }}
+      </span>
+      <span>2 Verify</span>
+    </a>
+
+    <span style="color: var(--border-strong);">&rsaquo;</span>
+
+    <a href="/cases/{{ case.id }}/analysis" style="text-decoration: none; display: flex; align-items: center; gap: 8px; color: {{ 'var(--primary-600)' if current_step == 3 else '#166534' if current_step > 3 else 'var(--text-subtle)' }}; font-weight: {{ '700' if current_step == 3 else '500' }}; font-size: 13px;">
+      <span style="width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{ 'var(--primary-600)' if current_step == 3 else '#dcfce7' if current_step > 3 else 'var(--bg-muted)' }}; color: {{ '#ffffff' if current_step == 3 else '#166534' if current_step > 3 else 'var(--text-muted)' }};">
+        {{ '✓' if current_step > 3 else '3' }}
+      </span>
+      <span>3 Analyse</span>
+    </a>
+
+    <span style="color: var(--border-strong);">&rsaquo;</span>
+
+    <a href="/cases/{{ case.id }}/timeline" style="text-decoration: none; display: flex; align-items: center; gap: 8px; color: {{ 'var(--primary-600)' if current_step == 4 else '#166534' if current_step > 4 else 'var(--text-subtle)' }}; font-weight: {{ '700' if current_step == 4 else '500' }}; font-size: 13px;">
+      <span style="width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{ 'var(--primary-600)' if current_step == 4 else '#dcfce7' if current_step > 4 else 'var(--bg-muted)' }}; color: {{ '#ffffff' if current_step == 4 else '#166534' if current_step > 4 else 'var(--text-muted)' }};">
+        {{ '✓' if current_step > 4 else '4' }}
+      </span>
+      <span>4 Timeline</span>
+    </a>
+
+    <span style="color: var(--border-strong);">&rsaquo;</span>
+
+    <a href="/cases/{{ case.id }}/reports" style="text-decoration: none; display: flex; align-items: center; gap: 8px; color: {{ 'var(--primary-600)' if current_step == 5 else 'var(--text-subtle)' }}; font-weight: {{ '700' if current_step == 5 else '500' }}; font-size: 13px;">
+      <span style="width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{ 'var(--primary-600)' if current_step == 5 else 'var(--bg-muted)' }}; color: {{ '#ffffff' if current_step == 5 else 'var(--text-muted)' }};">
+        5
+      </span>
+      <span>5 Report</span>
+    </a>
+  </div>
+
+  {# Case Navigation Tabs #}
+  <div class="tabs-container" style="margin-bottom: 0; border-bottom: 2px solid var(--border-subtle); border-top: 1px solid var(--border-subtle); padding-top: var(--space-2); overflow-x: auto; overflow-y: hidden;">
+    <a href="/cases/{{ case.id }}" class="tab-item {{ 'active' if active_tab == 'overview' else '' }}">
+      Overview
+    </a>
+    <a href="/cases/{{ case.id }}/evidence" class="tab-item {{ 'active' if active_tab == 'evidence' else '' }}">
+      Evidence
+    </a>
+    <a href="/cases/{{ case.id }}/custody" class="tab-item {{ 'active' if active_tab == 'custody' else '' }}">
+      Custody Trail
+    </a>
+    <a href="/cases/{{ case.id }}/timeline" class="tab-item {{ 'active' if active_tab == 'timeline' else '' }}">
+      Timeline
+    </a>
+    <a href="/cases/{{ case.id }}/analysis" class="tab-item {{ 'active' if active_tab == 'analysis' else '' }}">
+      Analysis
+    </a>
+    <a href="/cases/{{ case.id }}/iocs" class="tab-item {{ 'active' if active_tab == 'iocs' else '' }}">
+      IOCs
+    </a>
+    <a href="/cases/{{ case.id }}/reports" class="tab-item {{ 'active' if active_tab == 'reports' else '' }}">
+      Reports
+    </a>
+    <a href="/cases/{{ case.id }}/graph" class="tab-item {{ 'active' if active_tab == 'graph' else '' }}">
+      Graph
+    </a>
+  </div>
+</div>

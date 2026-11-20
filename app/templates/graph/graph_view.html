@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}Relationship Graph - Case {{ case.case_no }}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/vis-network/vis-network.css') }}">
+<style>
+  #network-canvas-container {
+    height: 540px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    position: relative;
+    overflow: hidden;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Cases", "/cases"), (case.case_no, "/cases/" ~ case.id), ("Relationship Graph", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {# Standardized Case Header & Tabs #}
+  {% include "cases/case_header.html" %}
+
+  {# Graph Toolbar & Metrics Bar #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body" style="padding: var(--space-4);">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-4);">
+        {# Filter Checkboxes #}
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4);">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Entity Filters:</span>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="filter-ip" checked onchange="reloadGraph()">
+            <span>IPs</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="filter-domain" checked onchange="reloadGraph()">
+            <span>Domains</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="filter-user" checked onchange="reloadGraph()">
+            <span>Users</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="filter-evidence" checked onchange="reloadGraph()">
+            <span>Evidence</span>
+          </label>
+        </div>
+
+        {# Graph Metrics Summary #}
+        <div style="display: flex; align-items: center; gap: var(--space-4); font-size: 12px; color: var(--text-muted);">
+          <div>Nodes: <strong style="color: var(--text-main);" id="metric-nodes">{{ metrics.total_nodes }}</strong></div>
+          <div>Edges: <strong style="color: var(--text-main);" id="metric-edges">{{ metrics.total_edges }}</strong></div>
+          <div>Suspicious: <strong style="color: #ef4444;" id="metric-suspicious">{{ metrics.suspicious_nodes }}</strong></div>
+          <div>Density: <strong style="color: var(--text-main);" id="metric-density">{{ metrics.density }}</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Main Canvas & Node Inspector Grid #}
+  <div style="display: grid; grid-template-columns: 1fr 300px; gap: var(--space-5); align-items: start;">
+    {# Network Graph Viewport #}
+    <div>
+      <div id="network-canvas-container">
+        <div id="graph-loading" style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 13px;">
+          Rendering entity relationship network&hellip;
+        </div>
+      </div>
+
+      {# Legend #}
+      <div style="display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; padding: var(--space-3) var(--space-2); margin-top: var(--space-2);">
+        <div class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span> IP Address</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #8b5cf6;"></span> Domain</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #10b981;"></span> Username</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #f59e0b;"></span> Evidence</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #ef4444;"></span> Suspicious / Malicious / Compromised</div>
+      </div>
+    </div>
+
+    {# Node Inspector Sidebar Card #}
+    <div class="card" id="inspector-card">
+      <div class="card-header" style="padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle);">
+        <h3 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0;">Entity Inspector</h3>
+      </div>
+      <div class="card-body" style="padding: var(--space-4);">
+        <div id="inspector-empty" style="color: var(--text-muted); font-size: 13px; text-align: center; padding: var(--space-6) 0;">
+          Click any node on the graph to inspect its properties and linkages.
+        </div>
+        <div id="inspector-details" style="display: none;">
+          <div style="margin-bottom: var(--space-3);">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-subtle);">Type</div>
+            <div id="insp-type" style="font-weight: 600; font-size: 13px; color: var(--text-main);"></div>
+          </div>
+          <div style="margin-bottom: var(--space-3);">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-subtle);">Defanged Identifier</div>
+            <div id="insp-label" style="font-family: monospace; font-size: 12px; color: var(--text-main); word-break: break-all;"></div>
+          </div>
+          <div style="margin-bottom: var(--space-3);">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-subtle);">Connections (Degree)</div>
+            <div id="insp-degree" style="font-size: 13px; color: var(--text-main);"></div>
+          </div>
+          <div id="insp-extra" style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-muted);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Bottom Navigation / Next Step (B1) #}
+  <div style="margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+    <span style="font-size: 13px; color: var(--text-muted);">Investigation workflow complete. Review case overview or export Section 63 reports.</span>
+    <a href="/cases/{{ case.id }}" class="btn btn-primary" style="font-size: 13px;">
+      <svg width="14" height="14" class="icon"><use href="#icon-cases"></use></svg>
+      <span>Back to Case Overview &rarr;</span>
+    </a>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='vendor/vis-network/vis-network.js') }}"></script>
+<script>
+(function() {
+  var network = null;
+
+  function getSelectedTypes() {
+    var types = [];
+    if (document.getElementById('filter-ip').checked) types.push('ip');
+    if (document.getElementById('filter-domain').checked) types.push('domain');
+    if (document.getElementById('filter-user').checked) types.push('user');
+    if (document.getElementById('filter-evidence').checked) types.push('evidence');
+    return types.join(',');
+  }
+
+  window.reloadGraph = function() {
+    var types = getSelectedTypes();
+    var url = '/cases/{{ case.id }}/graph/data?types=' + encodeURIComponent(types);
+
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById('graph-loading').style.display = 'none';
+
+        // Update metrics
+        if (data.metrics) {
+          document.getElementById('metric-nodes').textContent = data.metrics.total_nodes;
+          document.getElementById('metric-edges').textContent = data.metrics.total_edges;
+          document.getElementById('metric-suspicious').textContent = data.metrics.suspicious_nodes;
+          document.getElementById('metric-density').textContent = data.metrics.density;
+        }
+
+        var container = document.getElementById('network-canvas-container');
+        network = new vis.Network(container, data, {});
+
+        network.on('click', function(params) {
+          var details = document.getElementById('inspector-details');
+          var empty = document.getElementById('inspector-empty');
+          if (params.node) {
+            empty.style.display = 'none';
+            details.style.display = 'block';
+            document.getElementById('insp-type').textContent = (params.node.type || 'Entity').toUpperCase();
+            document.getElementById('insp-label').textContent = params.node.label || params.node.id;
+            document.getElementById('insp-degree').textContent = params.node.degree || 0;
+            var extra = '';
+            if (params.node.verdict) extra += '<div>Verdict: <strong>' + params.node.verdict + '</strong></div>';
+            if (params.node.sha256) extra += '<div>SHA-256: <code>' + params.node.sha256 + '</code></div>';
+            document.getElementById('insp-extra').innerHTML = extra;
+          } else {
+            empty.style.display = 'block';
+            details.style.display = 'none';
+          }
+        });
+      })
+      .catch(function(err) {
+        document.getElementById('graph-loading').textContent = 'Failed to load graph data.';
+      });
+  };
+
+  reloadGraph();
+})();
+</script>
+{% endblock %}

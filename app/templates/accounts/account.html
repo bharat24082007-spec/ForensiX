@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% import "macros/components.html" as ui %}
+
+{% block title %}My Account | ForensiX Platform{% endblock %}
+
+{% block breadcrumb %}
+  {{ ui.breadcrumb([("Dashboard", "/dashboard"), ("Account", None)]) }}
+{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Account Security & Credentials", "Manage authentication credentials, cryptographic keys, and TOTP enrollment") %}
+  {% endcall %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div style="padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); font-size: 13px;
+          {% if category == 'error' %}background-color: var(--status-compromised-bg); color: var(--status-compromised-text); border: 1px solid var(--status-compromised-border);
+          {% elif category == 'warning' %}background-color: var(--status-suspicious-bg); color: var(--status-suspicious-text); border: 1px solid var(--status-suspicious-border);
+          {% else %}background-color: var(--status-verified-bg); color: var(--status-verified-text); border: 1px solid var(--status-verified-border);{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--space-6);">
+    {# Card 1: User Profile #}
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Identity &amp; Role</span>
+        {{ ui.status_chip(current_user.role) }}
+      </div>
+      <div class="card-body">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Full Name</span>
+            <span class="detail-value">{{ current_user.name }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Username</span>
+            <span class="detail-value">{{ current_user.username }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Assigned Role</span>
+            <span class="detail-value"><strong>{{ current_user.role }}</strong></span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Registration Date</span>
+            <span class="detail-value">{{ user_info.created_at if user_info else 'N/A' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Card 2: Two-Factor Authentication #}
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Multi-Factor Authentication (TOTP)</span>
+        {% if user_info and user_info.mfa_enabled %}
+          <span class="chip chip-verified"><span class="chip-dot"></span>Active</span>
+        {% else %}
+          <span class="chip chip-compromised"><span class="chip-dot"></span>Disabled</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: var(--space-4);">
+          TOTP authentication adds a second layer of defense. Required for Lead and Admin personnel.
+        </p>
+
+        <form action="/account/mfa/setup" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-primary">
+            {% if user_info and user_info.mfa_enabled %}Re-enroll TOTP Device{% else %}Configure TOTP MFA{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {# Card 3: Cryptographic Signing Key #}
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">Digital Signature Public Key (Ed25519)</span>
+        <span class="chip chip-verified">Court Admissible</span>
+      </div>
+      <div class="card-body">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: var(--space-3);">
+          This key is utilized to sign digital forensic reports under Section 63 of Bharatiya Sakshya Adhiniyam, 2023.
+        </p>
+        <div>
+          <span class="detail-label">Public Key (Hex):</span>
+          <div style="margin-top: var(--space-1);">
+            {{ ui.hash_display(user_info.sign_pub_key if user_info else None, truncate=False) }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
